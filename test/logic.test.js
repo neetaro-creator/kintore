@@ -446,7 +446,7 @@ test('seed.json: 計画値は付録Aの数字と合う（週3回、3メニュー
   assert.equal(p['大腿四頭'], 5);      // ハック3 + レッグエクステンション2
   assert.equal(p['上腕三頭'], 2 + 4.5); // プレスダウン2 + ベンチ系9×0.5
   assert.equal(p['上腕二頭'], 4 + 3);   // カール2+2 + ロウ・懸垂6×0.5
-  assert.equal(p['ハムストリングス'], 3 + 1.5);
+  assert.equal(p['ハムストリングス'], 3); // レッグカールだけ。ハーフデッド（膝の高さから）は数えない
 });
 
 /* ---------- 版とキャッシュの食い違い防止 ---------- */
@@ -528,4 +528,9 @@ test('presets.js: 付録Aの16種目と付録Bの代替が入っていて、一�
   assert.equal(byName['ハーフデッドリフト'].inc, 5);
   assert.equal(byName['サイドレイズ'].inc, 1);
   assert.equal(Object.keys(exs).length, 16 + 26);
+  // ハーフデッドリフトは膝の高さから引く形（ユーザー確認済み）。ハムストリングスには数えない
+  assert.deepEqual(byName['ハーフデッドリフト'].aux, []);
+  assert.deepEqual(byName['ラックプル'].aux, []);
+  assert.equal(byName['ルーマニアンデッドリフト'].main, 'ハムストリングス');
+  assert.deepEqual(byName['ルーマニアンデッドリフト'].aux, ['背中']);
 });
