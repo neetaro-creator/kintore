@@ -2,6 +2,7 @@
 /* フェーズ0: 見た目の試作。データはすべてダミー。保存もしない（タイマーの終了時刻だけ localStorage）。 */
 
 /* ========== ダミーデータ ========== */
+const BUILD = 'p0-1011-b';
 const MUSCLES = ['胸', '背中', '三角筋側部', '三角筋後部', '上腕二頭', '上腕三頭', '大腿四頭', 'ハムストリングス', 'ふくらはぎ', '腹筋'];
 const CAT_REST = { 多: 150, 単: 105, カ腹: 75 };
 const CAT_NAME = { 多: '多関節', 単: '単関節', カ腹: 'カーフ・腹筋' };
@@ -510,7 +511,8 @@ function viewSettings() {
     <div class="card">
       <h2>試作用</h2>
       <button class="btn block" data-act="timer10">タイマー画面を試す（10秒）</button>
-    </div>`;
+    </div>
+    <div class="foot-hint">版 ${BUILD}</div>`;
 }
 function stepper(k, v, unit, step = 1) {
   return `<div class="stepper"><button data-act="cfg" data-k="${k}" data-d="-${step}">−</button><span class="num" style="min-width:52px;text-align:center;font-weight:800;font-size:18px">${v}<small style="margin-left:2px">${unit}</small></span><button data-act="cfg" data-k="${k}" data-d="${step}">＋</button></div>`;
