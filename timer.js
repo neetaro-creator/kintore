@@ -41,8 +41,9 @@ function wheelTo(v, smooth) {
 }
 
 /* ========== タイマー ========== */
-const T = { end: 0, total: 0, iv: 0, done: false, wl: null, press: 0, ctx: null, beeped: false };
-const RING_LEN = 2 * Math.PI * 130;
+const T = { end: 0, total: 0, iv: 0, done: false, wl: null, press: 0, ctx: null, alarm: 0, alarmEnd: 0, tap: false };
+const RING_LEN = 2 * Math.PI * 130, PRESS_LEN = 2 * Math.PI * 112;
+const ALARM_EVERY = 1400, ALARM_MAX = 3 * 60 * 1000; // 終了音は、閉じるまでくり返す（最長3分）
 
 function startTimer(sec) {
   try {
@@ -55,73 +56,99 @@ function startTimer(sec) {
   openTimer();
 }
 function openTimer() {
-  T.done = false; T.beeped = false;
+  T.done = false; T.tap = false;
+  stopAlarm();
   const t = $('#timer');
-  t.hidden = false; t.classList.remove('done', 'pressing');
+  t.hidden = false; t.classList.remove('done');
+  resetPress();
   document.body.style.overflow = 'hidden';
   $('#ring-fg').style.strokeDasharray = RING_LEN;
-  $('#ring-press').style.strokeDasharray = 2 * Math.PI * 112;
-  $('#ring-press').style.strokeDashoffset = 2 * Math.PI * 112;
+  $('#timer-hint').textContent = '長押しで終了';
   tick();
   clearInterval(T.iv);
   T.iv = setInterval(tick, 200);
   getWakeLock();
 }
+// 長押しの表示を最初の状態に戻す
+function resetPress() {
+  const pr = $('#ring-press');
+  clearTimeout(T.press);
+  $('#timer').classList.remove('pressing');
+  pr.style.transition = 'none';
+  pr.style.strokeDasharray = PRESS_LEN;
+  pr.style.strokeDashoffset = PRESS_LEN;
+}
 function tick() {
   const left = Math.max(0, T.end - Date.now());
   const s = Math.ceil(left / 1000);
   $('#timer-num').textContent = `${Math.floor(s / 60)}:${pad(s % 60)}`;
-  $('#ring-fg').style.strokeDashoffset = RING_LEN * (1 - left / T.total);
+  // 残りが減るにつれて輪が短くなる。終了後は、終了の色で一周させたままにする
+  $('#ring-fg').style.strokeDashoffset = left > 0 ? RING_LEN * (1 - left / T.total) : 0;
   if (left <= 0 && !T.done) {
     T.done = true;
+    resetPress();
     $('#timer').classList.add('done');
-    $('#ring-fg').style.strokeDashoffset = 0;
-    if (!T.beeped) { T.beeped = true; beep(); }
+    $('#timer-hint').textContent = 'タップで閉じる';
+    startAlarm();
   }
 }
+// ピピピッ（スマホのスピーカーで通りやすい、高めの矩形波）
 function beep() {
-  if (!T.ctx) return;
+  const c = T.ctx;
+  if (!c) return;
   try {
-    [0, 0.35, 0.7].forEach(off => {
-      const o = T.ctx.createOscillator(), g = T.ctx.createGain();
-      o.frequency.value = 880; o.type = 'sine';
-      g.gain.setValueAtTime(0.0001, T.ctx.currentTime + off);
-      g.gain.exponentialRampToValueAtTime(0.5, T.ctx.currentTime + off + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, T.ctx.currentTime + off + 0.25);
-      o.connect(g); g.connect(T.ctx.destination);
-      o.start(T.ctx.currentTime + off); o.stop(T.ctx.currentTime + off + 0.3);
+    if (c.state !== 'running') c.resume().catch(() => {});
+    [0, 0.2, 0.4].forEach(off => {
+      const o = c.createOscillator(), g = c.createGain(), at = c.currentTime + off;
+      o.type = 'square'; o.frequency.value = 1760;
+      g.gain.setValueAtTime(0.0001, at);
+      g.gain.exponentialRampToValueAtTime(0.3, at + 0.01);
+      g.gain.setValueAtTime(0.3, at + 0.11);
+      g.gain.exponentialRampToValueAtTime(0.0001, at + 0.14);
+      o.connect(g); g.connect(c.destination);
+      o.start(at); o.stop(at + 0.16);
     });
   } catch (_) {}
 }
+function startAlarm() {
+  stopAlarm();
+  T.alarmEnd = Date.now() + ALARM_MAX;
+  beep();
+  T.alarm = setInterval(() => { if (Date.now() > T.alarmEnd) stopAlarm(); else beep(); }, ALARM_EVERY);
+}
+function stopAlarm() { clearInterval(T.alarm); T.alarm = 0; }
 async function getWakeLock() {
   try { if ('wakeLock' in navigator) T.wl = await navigator.wakeLock.request('screen'); } catch (_) { /* 静かに続ける */ }
 }
 function closeTimer() {
   clearInterval(T.iv);
+  stopAlarm();
+  resetPress();
   $('#timer').hidden = true;
   document.body.style.overflow = '';
   try { localStorage.removeItem('timerEnd'); } catch (_) {}
   try { if (T.wl) { T.wl.release(); T.wl = null; } } catch (_) {}
 }
 (function bindTimer() {
-  const t = $('#timer'), pr = $('#ring-press'), L = 2 * Math.PI * 112;
+  const t = $('#timer'), pr = $('#ring-press');
   const stop = e => { e.preventDefault(); };
   ['touchmove', 'gesturestart', 'gesturechange', 'dblclick', 'contextmenu', 'click', 'wheel'].forEach(ev =>
     t.addEventListener(ev, stop, { passive: false }));
   t.addEventListener('touchstart', stop, { passive: false });
+  // カウント中は約1.5秒の長押しで終了（ポケットでの誤操作を防ぐ）。終了後はタップで閉じる
   const down = e => {
     e.preventDefault();
-    clearTimeout(T.press);
+    if (T.done) { T.tap = true; return; }
+    resetPress();
+    pr.getBoundingClientRect(); // ここで一度描画させて、輪が必ず0から伸びるようにする
     t.classList.add('pressing');
     pr.style.transition = 'stroke-dashoffset 1.5s linear';
     pr.style.strokeDashoffset = 0;
     T.press = setTimeout(closeTimer, 1500);
   };
-  const up = () => {
-    clearTimeout(T.press);
-    t.classList.remove('pressing');
-    pr.style.transition = 'none';
-    pr.style.strokeDashoffset = L;
+  const up = e => {
+    if (T.done) { if (T.tap && e.type === 'pointerup') closeTimer(); T.tap = false; return; }
+    resetPress();
   };
   t.addEventListener('pointerdown', down);
   ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => t.addEventListener(ev, up));

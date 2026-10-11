@@ -532,3 +532,8 @@ html, body { height: 100%; overflow: hidden; }
 .steps em { font-style: normal; font-weight: 800; }
 .altrow .altname { flex: 1; min-width: 0; min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 10px; text-align: left; font-weight: 600; font-size: 15px; color: var(--text); }
 .altrow .altname .sub { white-space: nowrap; font-weight: 500; }
+button.pgh { width: 100%; text-align: left; }
+#timer-hint { position: absolute; left: 0; right: 0; bottom: 11%; text-align: center; font-size: 15px; font-weight: 600; color: #77777f; }
+#timer.done #timer-hint { color: #fff; font-size: 19px; }
+#timer.done::before { content: ''; position: absolute; inset: 0; background: var(--ring-done); opacity: 0; animation: alarmflash 1s ease-in-out infinite; }
+@keyframes alarmflash { 50% { opacity: .3; } }

@@ -19,6 +19,10 @@
   function addDays(k, n) { const d = parseKey(k); d.setDate(d.getDate() + n); return dateKey(d); }
   function diffDays(a, b) { return Math.round((parseKey(a) - parseKey(b)) / 86400000); }
   const sortedDates = days => Object.keys(days).sort();
+  // カレンダーの月（m は 0〜11）を d か月動かす
+  function shiftMonth(cal, d) { const t = new Date(cal.y, cal.m + d, 1); return { y: t.getFullYear(), m: t.getMonth() }; }
+  // 横スワイプの向き。左へ払う（dx が負）と次の月 = 1、右で -1、短い動きや縦の動きは 0
+  function swipeDir(dx, dy) { return Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5 ? 0 : dx < 0 ? 1 : -1; }
 
   /* ---------- 数値の表示 ---------- */
   const fmtKg = n => String(Math.round(n * 100) / 100);
@@ -351,7 +355,7 @@
 
   const api = {
     MUSCLES, CATS,
-    dateKey, parseKey, addDays, diffDays, fmtKg, fmt1, fmtMD,
+    dateKey, parseKey, addDays, diffDays, shiftMonth, swipeDir, fmtKg, fmt1, fmtMD,
     e1rm, rmShown,
     performedMenus, lastPerformed, recommend,
     historyOf, fmtSets, fmtHist, suggest, nextSet,

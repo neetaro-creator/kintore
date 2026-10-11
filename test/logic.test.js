@@ -534,3 +534,16 @@ test('presets.js: 付録Aの16種目と付録Bの代替が入っていて、一�
   assert.equal(byName['ルーマニアンデッドリフト'].main, 'ハムストリングス');
   assert.deepEqual(byName['ルーマニアンデッドリフト'].aux, ['背中']);
 });
+
+/* ---------- カレンダーの月移動（ボタンとスワイプで共通） ---------- */
+test('月の移動: 年をまたいで前後に動く', () => {
+  assert.deepEqual(L.shiftMonth({ y: 2026, m: 9 }, 1), { y: 2026, m: 10 });
+  assert.deepEqual(L.shiftMonth({ y: 2026, m: 11 }, 1), { y: 2027, m: 0 });
+  assert.deepEqual(L.shiftMonth({ y: 2026, m: 0 }, -1), { y: 2025, m: 11 });
+});
+test('スワイプの向き: 左へ払うと次の月、右へ払うと前の月。短い動きや縦の動きは無視', () => {
+  assert.equal(L.swipeDir(-80, 10), 1);
+  assert.equal(L.swipeDir(80, -10), -1);
+  assert.equal(L.swipeDir(-30, 0), 0);
+  assert.equal(L.swipeDir(-80, 70), 0);
+});

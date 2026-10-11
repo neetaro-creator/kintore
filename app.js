@@ -1,7 +1,7 @@
 'use strict';
 /* 画面と操作。ロジックは logic.js（純関数）、保存は db.js、人体図は figure.js、並べ替えは drag.js、タイマーは timer.js。 */
 
-const BUILD = 'p1-1011-e'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
+const BUILD = 'p1-1011-f'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
 const L = Logic;
 const MUSCLES = L.MUSCLES;
 const CATS = L.CATS;
@@ -139,6 +139,7 @@ function viewHome() {
   return `
     ${S.storeError ? '<div class="banner">この画面では記録を保存できません（プライベートブラウズでは保存できません）。</div>' : ''}
     ${due ? '<div class="banner">バックアップを30日以上保存していません。設定から保存してください。</div>' : ''}
+    <div id="cal">
     <div class="cal-head">
       <button data-act="cal" data-d="-1" aria-label="前の月">‹</button>
       <div class="ttl">${y}年${m + 1}月</div>
@@ -146,6 +147,7 @@ function viewHome() {
     </div>
     <div class="cal-week">${WD.map(w => `<div>${w}</div>`).join('')}</div>
     <div class="cal-grid">${cells}</div>
+    </div>
     <div class="card" style="margin-top:14px">${card}</div>
     <button class="btn block" data-act="rm">RM計算</button>`;
 }
@@ -516,7 +518,7 @@ function pickListHtml() {
   return addNew + none + groups.map(g => {
     const shown = open[g.m] || nq ? g.list : g.list.slice(0, 3);
     return `<div class="pg">
-        <div class="pgh"><b>${g.m}</b><span class="sub">${nq ? g.list.length + '件' : ago(g.m)}</span></div>
+        ${nq ? `<div class="pgh"><b>${g.m}</b><span class="sub">${g.list.length}件</span></div>` : `<button class="pgh" data-act="pickMore" data-m="${g.m}" aria-expanded="${!!open[g.m]}"><b>${g.m}</b><span class="sub">${ago(g.m)}${g.list.length > 3 ? (open[g.m] ? ' ▴' : ' ▾') : ''}</span></button>`}
         ${shown.map(e => { const dis = have.has(e.id); return `<button class="pick pk" ${dis ? 'disabled style="opacity:.4"' : `data-act="pickEx" data-id="${e.id}"`}><span>${esc(e.name)}</span><span class="sub">${dis ? '追加済み' : '＋'}</span></button>`; }).join('')}
         ${nq ? '' : `<div class="pgf">
           ${isAlt ? '<span></span>' : `<button data-act="newEx" data-m="${g.m}" class="acc">種目を追加</button>`}
@@ -716,11 +718,11 @@ document.addEventListener('click', ev => {
   S.keepScroll = true;
   switch (a) {
     case 'tab': S.tab = el.dataset.t; S.day = null; S.keepScroll = false; render(); $('#view').scrollTop = 0; maybeReload(); return;
-    case 'cal': S.cal.m += +el.dataset.d; if (S.cal.m < 0) { S.cal.m = 11; S.cal.y--; } if (S.cal.m > 11) { S.cal.m = 0; S.cal.y++; } break;
+    case 'cal': S.cal = L.shiftMonth(S.cal, +el.dataset.d); break;
     case 'pick': S.menuPick = el.dataset.id; break;
     case 'today': openDay(todayKey(), pickedMenu()); return;
     case 'todayFree': case 'todayOpen': openDay(todayKey(), null); return;
-    case 'day': openDay(el.dataset.d, el.dataset.d === todayKey() ? pickedMenu() : null); return;
+    case 'day': if (Date.now() - SWIPE.at < 400) return; openDay(el.dataset.d, el.dataset.d === todayKey() ? pickedMenu() : null); return;
     case 'dayMenu': {
       const m = S.menus.find(x => x.id === el.dataset.id);
       D.menuId = m.id; D.ex = menuEntries(m); openFirstUnfinished(); saveDay(); break;
@@ -857,6 +859,22 @@ document.addEventListener('click', ev => {
   render(); S.keepScroll = false;
 });
 
+/* カレンダー: 左右スワイプで月を移動 */
+const SWIPE = { on: false, x: 0, y: 0, at: 0 };
+document.addEventListener('touchstart', e => {
+  SWIPE.on = e.touches.length === 1 && !!e.target.closest('#cal');
+  if (SWIPE.on) { SWIPE.x = e.touches[0].clientX; SWIPE.y = e.touches[0].clientY; }
+}, { passive: true });
+document.addEventListener('touchend', e => {
+  if (!SWIPE.on) return;
+  SWIPE.on = false;
+  const p = e.changedTouches[0], dir = L.swipeDir(p.clientX - SWIPE.x, p.clientY - SWIPE.y);
+  if (!dir) return;
+  SWIPE.at = Date.now(); // スワイプ直後のタップ扱い（日を開く）を止める
+  S.cal = L.shiftMonth(S.cal, dir);
+  rerender();
+});
+
 document.addEventListener('input', ev => {
   if (ev.target.id === 'pk-q') { S.pick.q = ev.target.value; const l = document.getElementById('pklist'); if (l) l.innerHTML = pickListHtml(); }
 });
@@ -926,7 +944,8 @@ async function boot() {
   render();
   try {
     const saved = JSON.parse(localStorage.getItem('timerEnd') || 'null');
-    if (saved && saved.end) { T.end = saved.end; T.total = saved.total; openTimer(); }
+    if (saved && saved.end && Date.now() - saved.end < 10 * 60 * 1000) { T.end = saved.end; T.total = saved.total; openTimer(); }
+    else localStorage.removeItem('timerEnd');
   } catch (_) {}
   // 保存領域を、空き容量の整理で消されないように要求する
   try {
