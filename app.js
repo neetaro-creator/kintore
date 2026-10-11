@@ -2,7 +2,7 @@
 /* フェーズ0: 見た目の試作。データはすべてダミー。保存もしない（タイマーの終了時刻だけ localStorage）。 */
 
 /* ========== ダミーデータ ========== */
-const BUILD = 'p0-1011-h';
+const BUILD = 'p0-1011-i';
 const MUSCLES = ['胸', '背中', '三角筋側部', '三角筋後部', '上腕二頭', '上腕三頭', '大腿四頭', 'ハムストリングス', 'ふくらはぎ', '腹筋'];
 const CAT_REST = { 多: 150, 単: 105, カ腹: 75 };
 const CAT_NAME = { 多: '多関節', 単: '単関節', カ腹: 'カーフ・腹筋' };
@@ -655,7 +655,7 @@ function pickSheet(mode) {
   const menu = isDay ? S.menus.find(m => m.id === S.day.menuId) : S.menus.find(m => 'menu:' + m.id === mode);
   const have = new Set(isDay ? S.day.ex.map(e => e.id) : menu.ex);
   const open = S.pick.open || (S.pick.open = {});
-  const also = isDay && menu ? `<button class="toggle ${S.pick.also ? 'on' : ''}" style="width:100%;margin-bottom:6px" data-act="pickAlso">${S.pick.also ? '✓ ' : ''}「${esc(menu.name)}」メニューにも追加する</button>` : '';
+  const also = isDay && menu ? `<button class="toggle ${S.pick.also ? 'on' : ''}" style="width:100%;margin-bottom:6px" data-act="pickAlso">${S.pick.also ? '✓ ' : ''}今後の「${esc(menu.name)}」メニューにも追加する</button>` : '';
   const groups = MUSCLES.map(m => ({
     m,
     list: Object.values(EX).filter(e => e.main === m).sort((x, y) => (USE[y.id] || 0) - (USE[x.id] || 0) || x.name.localeCompare(y.name, 'ja')),
