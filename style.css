@@ -377,3 +377,10 @@ html, body { height: 100%; overflow: hidden; }
 .pgh { background: rgba(47, 128, 255, .22); padding: 9px 14px; align-items: center; }
 .pgh b { color: #8fc2ff; font-size: 17px; }
 .pgh .sub { color: #b9d6ff; }
+
+/* 見出しの色: 見出し=水色 / 本文=白 / 補足=灰色 の3段階にする */
+:root { --title: #86bcff; }
+h2, .menu-name, .exhead .en, .mrow .t b, .prow .pn, .rec-name, .pgh b { color: var(--title); }
+.menu-card.c.open .menu-name { color: var(--title); }
+.exhead .en .tag { color: #b9d6ff; }
+.sheet h2 { color: var(--title); }
