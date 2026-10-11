@@ -357,3 +357,9 @@ html, body { height: 100%; overflow: hidden; }
 /* 画面上部: ステータスバーの下にスクロール内容が透けて、ぼやけて見えるのを防ぐ */
 #app { padding-top: var(--safe-t); background: var(--bg); }
 #view { padding-top: 14px; }
+
+/* 種目追加リスト: 行を詰める */
+.pick.pk { min-height: 42px; font-size: 15px; padding: 0; }
+.pick.pk .sub { font-size: 12px; }
+.pkh { margin: 10px 0 0; font-weight: 700; font-size: 12px; letter-spacing: .02em; }
+.pkh + .pick.pk { border-top: 0; }

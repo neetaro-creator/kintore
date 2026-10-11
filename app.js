@@ -2,7 +2,7 @@
 /* フェーズ0: 見た目の試作。データはすべてダミー。保存もしない（タイマーの終了時刻だけ localStorage）。 */
 
 /* ========== ダミーデータ ========== */
-const BUILD = 'p0-1011-e';
+const BUILD = 'p0-1011-f';
 const MUSCLES = ['胸', '背中', '三角筋側部', '三角筋後部', '上腕二頭', '上腕三頭', '大腿四頭', 'ハムストリングス', 'ふくらはぎ', '腹筋'];
 const CAT_REST = { 多: 150, 単: 105, カ腹: 75 };
 const CAT_NAME = { 多: '多関節', 単: '単関節', カ腹: 'カーフ・腹筋' };
@@ -647,11 +647,11 @@ function pickSheet(mode) {
   sheet(`<h2>種目を追加</h2>
     <div class="sub" style="margin-bottom:8px">${isDay ? '今日の記録に入れます' : `「${esc(menu.name)}」に入れます`}</div>
     ${also}
-    ${groups.filter(g => g.ids.length).map(g => `<div class="sub" style="margin:12px 0 2px;font-weight:700">${esc(g.title)}</div>` + g.ids.map(id => {
+    ${groups.filter(g => g.ids.length).map(g => `<div class="sub pkh">${esc(g.title)}</div>` + g.ids.map(id => {
       const e = EX[id], dis = have.has(id);
-      return `<button class="pick" ${dis ? 'disabled style="opacity:.4"' : `data-act="pickEx" data-id="${id}"`}><span>${esc(e.name)}<span class="sub"> ・ ${e.main}</span></span><span class="sub">${dis ? '追加済み' : '＋'}</span></button>`;
+      return `<button class="pick pk" ${dis ? 'disabled style="opacity:.4"' : `data-act="pickEx" data-id="${id}"`}><span>${esc(e.name)}<span class="sub"> ・ ${e.main}</span></span><span class="sub">${dis ? '追加済み' : '＋'}</span></button>`;
     }).join('')).join('')}
-    <button class="pick" data-act="dummy"><span>新しい種目を作成</span><span class="sub">フェーズ1</span></button>
+    <button class="pick pk" data-act="dummy"><span>新しい種目を作成</span><span class="sub">フェーズ1</span></button>
     <button class="btn block" data-act="close" style="margin-top:14px">閉じる</button>`);
   S.pick.mode = mode;
   $('#sheet-root .sheet').scrollTop = keepScroll;
