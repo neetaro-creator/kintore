@@ -463,3 +463,69 @@ test('index.html が読むスクリプトとスタイルは、すべて sw.js �
   used.forEach(f => assert.ok(files.includes(`'${f}'`), `${f} が sw.js の FILES にない`));
   assert.ok(used.includes('logic.js'));
 });
+
+/* ---------- プリセット種目（メニューを一から作る道） ---------- */
+const P = [
+  ['ベンチ', '多', '胸', '上腕三頭', 8, 10, 3, 2.5, ['ダンベルベンチ', 'スミス']],
+  ['ダンベルベンチ', '多', '胸', '上腕三頭', 8, 10, 3, 2],
+  ['スミス', '多', '胸', null, 8, 10, 3, 2.5],
+  ['懸垂', '多', '背中', '上腕二頭', 8, 10, 3, 2.5, ['ラット']],
+  ['ラット', '多', '背中', '上腕二頭', 8, 10, 3, 2.5, ['懸垂']],
+];
+const counter = () => { let n = 0; return () => 'n' + (++n); };
+test('プリセットの1行を種目の形にする', () => {
+  assert.deepEqual(L.presetExercise(P[0]), { name: 'ベンチ', cat: '多', main: '胸', aux: ['上腕三頭'], range: [8, 10], sets: 3, inc: 2.5, rest: null, memo: '', alts: [] });
+  assert.deepEqual(L.presetExercise(P[2]).aux, []);
+});
+test('プリセットを選ぶと、代替種目も一緒に種目になり、IDでつながる', () => {
+  const r = L.materialize('ベンチ', P, {}, counter());
+  assert.deepEqual(r.added.map(e => e.name), ['ベンチ', 'ダンベルベンチ', 'スミス']);
+  const bench = r.added[0];
+  assert.equal(r.id, bench.id);
+  assert.deepEqual(bench.alts, [r.added[1].id, r.added[2].id]);
+});
+test('プリセット: 同じ名前の種目がすでにあれば作らず、それを代替につなぐ', () => {
+  const have = exMap(ex('old', { name: 'ダンベルベンチ' }));
+  const r = L.materialize('ベンチ', P, have, counter());
+  assert.deepEqual(r.added.map(e => e.name), ['ベンチ', 'スミス']);
+  assert.equal(r.added[0].alts[0], 'old');
+  assert.deepEqual(Object.keys(have), ['old']);
+});
+test('プリセット: すでにある種目を選んだら、何も作らずそのIDを返す', () => {
+  const r = L.materialize('スミス', P, exMap(ex('s1', { name: 'スミス' })), counter());
+  assert.deepEqual(r, { id: 's1', added: [] });
+});
+test('プリセット: 互いを代替に持つ種目（懸垂とラットプルダウン）でも止まる', () => {
+  const r = L.materialize('懸垂', P, {}, counter());
+  assert.deepEqual(r.added.map(e => e.name), ['懸垂', 'ラット']);
+  assert.deepEqual(r.added[1].alts, [r.added[0].id]);
+  assert.deepEqual(r.added[0].alts, [r.added[1].id]);
+});
+test('presets.js: 名前の重複がなく、区分と部位が正しく、代替はすべてプリセットにある', () => {
+  const presets = new Function(read('presets.js') + '; return EX_PRESETS;')();
+  const names = presets.map(p => p[0]);
+  assert.equal(new Set(names).size, names.length);
+  presets.forEach(p => {
+    assert.ok(L.CATS.includes(p[1]), p[0]);
+    assert.ok(L.MUSCLES.includes(p[2]), p[0]);
+    assert.ok(p[3] === null || L.MUSCLES.includes(p[3]), p[0]);
+    assert.ok(p[4] >= 1 && p[5] >= p[4] && p[6] >= 1 && p[7] >= 0, p[0]);
+    (p[8] || []).forEach(a => assert.ok(names.includes(a), `${p[0]} の代替 ${a} がない`));
+  });
+});
+test('presets.js: 付録Aの16種目と付録Bの代替が入っていて、一から同じメニューを作れる', () => {
+  const presets = new Function(read('presets.js') + '; return EX_PRESETS;')();
+  const need = ['ベンチプレス', 'インクラインベンチ', 'チェストサポートロウ', 'サイドレイズ', 'プレスダウン', 'インクラインダンベルカール', 'ハックスクワット', 'レッグエクステンション', 'カーフレイズ', '腹筋（マシン）', 'ハーフデッドリフト', '懸垂', 'インクラインダンベルプレス', 'リアデルト', 'レッグカール', 'EZバーカール'];
+  let exs = {};
+  const mk = counter();
+  need.forEach(n => { L.materialize(n, presets, exs, mk).added.forEach(e => { exs[e.id] = e; }); });
+  const byName = Object.fromEntries(Object.values(exs).map(e => [e.name, e]));
+  need.forEach(n => assert.ok(byName[n], n));
+  const alts = n => byName[n].alts.map(id => exs[id].name);
+  assert.deepEqual(alts('ハックスクワット'), ['レッグプレス', 'スミススクワット', 'ダンベルのブルガリアンスクワット']);
+  assert.deepEqual(alts('懸垂'), ['ラットプルダウン']);
+  assert.deepEqual(alts('レッグエクステンション'), []);
+  assert.equal(byName['ハーフデッドリフト'].inc, 5);
+  assert.equal(byName['サイドレイズ'].inc, 1);
+  assert.equal(Object.keys(exs).length, 16 + 26);
+});

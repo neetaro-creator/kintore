@@ -1,7 +1,7 @@
 'use strict';
 /* 画面と操作。ロジックは logic.js（純関数）、保存は db.js、人体図は figure.js、並べ替えは drag.js、タイマーは timer.js。 */
 
-const BUILD = 'p1-1011-a'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
+const BUILD = 'p1-1011-b'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
 const L = Logic;
 const MUSCLES = L.MUSCLES;
 const CATS = L.CATS;
@@ -36,7 +36,8 @@ const pad = n => String(n).padStart(2, '0');
 const WD = ['日', '月', '火', '水', '木', '金', '土'];
 const todayKey = () => L.dateKey(new Date());
 const fmtKg = L.fmtKg;
-const newId = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+let idSeq = 0;
+const newId = p => p + Date.now().toString(36) + (idSeq++).toString(36) + Math.random().toString(36).slice(2, 5);
 const rangeText = e => (e.range[0] === e.range[1] ? String(e.range[0]) : e.range.join('-'));
 const dateJa = k => { const d = L.parseKey(k); return `${d.getMonth() + 1}月${d.getDate()}日（${WD[d.getDay()]}）`; };
 const actual = () => L.weeklyActual(DAYS, EX, todayKey()).totals;
@@ -113,9 +114,10 @@ function viewHome() {
       <button class="btn primary block" data-act="todayOpen" style="min-height:56px;font-size:18px">今日の記録を開く</button>`;
   } else if (!S.menus.length && !Object.keys(DAYS).length) {
     card = `
-      <div class="rec-name" style="font-size:22px">メニューがまだありません</div>
-      <div class="sub" style="margin-bottom:12px">初期メニュー（seed.json）かバックアップを読み込めます。メニュータブで一から作ることもできます。</div>
-      <button class="btn primary block" data-act="restore" style="min-height:56px;font-size:18px">初期メニューを読み込む</button>
+      <div class="rec-name" style="font-size:22px">はじめに、メニューを作ります</div>
+      <div class="sub" style="margin-bottom:12px">名前（例: 上半身A）を付けて、種目を選ぶだけです。前に使っていてバックアップがある人は、復元を選びます。</div>
+      <button class="btn primary block" data-act="startMenu" style="min-height:56px;font-size:18px">新しいメニューを作る</button>
+      <button class="btn block ghost" data-act="restore" style="margin-top:10px">バックアップから復元</button>
       <button class="btn block ghost" data-act="todayFree" style="margin-top:10px">メニューなしで始める</button>`;
   } else {
     const rec = pickedMenu();
@@ -374,7 +376,7 @@ function viewSettings() {
         <button class="btn grow" data-act="restore">復元</button>
         <button class="btn grow" data-act="csv">CSV書き出し</button>
       </div>
-      <div class="note" style="margin-top:10px">${lb}。記録はこのiPhoneの中だけにあります。復元は、今のデータをファイルの内容に置き換えます。</div>
+      <div class="note" style="margin-top:10px">${lb}。記録はこのiPhoneの中だけにあります。保存では「ファイルに保存」を選びます。iCloud Drive に置くと、iPhoneが壊れても残ります。</div>
     </div>
     <div class="card">
       <h2>メモ</h2>
@@ -477,18 +479,16 @@ function library() {
   const list = Object.values(EX);
   const have = new Set(list.map(e => e.name));
   EX_PRESETS.forEach((p, i) => {
-    if (!have.has(p[0])) list.push({ id: 'preset:' + i, name: p[0], cat: p[1], main: p[2], aux: p[3] ? [p[3]] : [], range: [p[4], p[5]], sets: p[6], inc: p[7], rest: null, memo: '', alts: [], preset: true });
+    if (!have.has(p[0])) list.push({ id: 'preset:' + i, ...L.presetExercise(p), preset: true });
   });
   return list;
 }
-// プリセットを選んだら、種目として保存して、そのIDを返す
+// プリセットを選んだら、種目として保存して（代替種目も一緒に）、そのIDを返す
 function resolveEx(id) {
   if (EX[id]) return id;
-  const p = library().find(e => e.id === id);
-  const e = { ...p, id: newId('x') };
-  delete e.preset;
-  EX[e.id] = e; saveEx(e);
-  return e.id;
+  const r = L.materialize(EX_PRESETS[+id.slice(7)][0], EX_PRESETS, EX, () => newId('x'));
+  r.added.forEach(e => { EX[e.id] = e; saveEx(e); });
+  return r.id;
 }
 function pickCtx() {
   const mode = S.pick.mode; // 'day' / 'menu:<メニューID>' / 'alt'（種目編集の代替）
@@ -669,6 +669,20 @@ async function doBackup() {
   rerender();
 }
 function doCsv() { shareFile(`kintore-${stamp()}.csv`, L.toCsv(currentState()), 'text/csv'); }
+// ファイル選択の前に、どこで何を選ぶかを案内する（開く場所はアプリからは指定できない）
+function restoreSheet() {
+  const lb = S.cfg.lastBackup;
+  sheet(`<h2>バックアップから復元</h2>
+    <div class="steps">
+      <div><b>1</b><span>下の「ファイルを選ぶ」を押すと、iPhoneの「ファイル」の画面が開きます。</span></div>
+      <div><b>2</b><span>バックアップを保存した場所を開きます。保存のときに「ファイルに保存」で選んだ場所です（iCloud Drive か「このiPhone内」が多いです）。</span></div>
+      <div><b>3</b><span><em>kintore-日付.backup.json</em> を選びます。見つからないときは、上の検索欄に <em>kintore</em> と入れてください。</span></div>
+    </div>
+    ${lb ? `<div class="note" style="margin-bottom:8px">前回の保存は${dateJa(lb)}、ファイル名は kintore-${lb.replace(/-/g, '')}.backup.json です。</div>` : ''}
+    <div class="note">選ぶと、中身の件数を表示して確認します。そこで「読み込む」を押すまで、何も変わりません。</div>
+    <button class="btn primary block" data-act="restoreGo" style="min-height:52px;margin-top:12px">ファイルを選ぶ</button>
+    <button class="btn block ghost" data-act="close" style="margin-top:8px">やめる</button>`);
+}
 async function onRestoreFile(file) {
   let st;
   try { st = L.parseBackup(await file.text()); }
@@ -754,12 +768,19 @@ document.addEventListener('click', ev => {
     case 'pause': { const m = S.menus.find(x => x.id === el.dataset.id); m.paused = !m.paused; saveMenus(); break; }
     case 'menuDelEx': S.menus[+el.dataset.mi].ex.splice(+el.dataset.k, 1); saveMenus(); break;
     case 'menuNew': textSheet('メニューを追加', '', 'new'); return;
+    case 'startMenu': S.tab = 'menu'; S.keepScroll = false; render(); textSheet('最初のメニューを作る', '', 'new'); return;
     case 'menuRename': textSheet('名前を変更', S.menus.find(x => x.id === el.dataset.id).name, 'rename', el.dataset.id); return;
     case 'saveText': {
       const v = $('#txt').value.trim();
       if (!v) return;
-      if (S.text.mode === 'new') { const id = newId('m'); S.menus.push({ id, name: v, paused: false, ex: [] }); S.openMenu = id; }
-      else S.menus.find(x => x.id === S.text.id).name = v;
+      if (S.text.mode === 'new') {
+        const id = newId('m');
+        S.menus.push({ id, name: v, paused: false, ex: [] }); S.openMenu = id;
+        saveMenus(); render(); S.keepScroll = false;
+        S.pick = { also: false, mode: 'menu:' + id }; pickSheet(S.pick.mode);
+        return;
+      }
+      S.menus.find(x => x.id === S.text.id).name = v;
       saveMenus(); closeSheet(); break;
     }
     case 'menuDel': {
@@ -806,7 +827,8 @@ document.addEventListener('click', ev => {
     }
     case 'backup': doBackup(); return;
     case 'csv': doCsv(); return;
-    case 'restore': { const f = $('#file'); f.value = ''; f.click(); return; }
+    case 'restore': restoreSheet(); return;
+    case 'restoreGo': { const f = $('#file'); f.value = ''; f.click(); return; }
     case 'timer10': startTimer(10); return;
     default: return;
   }
@@ -873,7 +895,7 @@ async function boot() {
     const st = await Store.loadAll();
     EX = st.exercises; DAYS = st.days; S.menus = st.menus;
     if (st.settings) S.cfg = { ...L.defaultSettings(), ...st.settings };
-    else await firstRun();
+    else await Store.putSettings(S.cfg);
   } catch (e) {
     console.error(e);
     S.storeError = true;
@@ -892,20 +914,6 @@ async function boot() {
     }
   } catch (_) {}
 }
-// 初回: 同じ場所に seed.json があれば（開発中のPCだけ。公開側には置かない）復元として読み込む
-async function firstRun() {
-  try {
-    const res = await fetch('seed.json', { cache: 'no-store' });
-    if (res.ok) {
-      const st = L.parseBackup(await res.text());
-      await Store.replaceAll(st);
-      EX = st.exercises; DAYS = st.days; S.menus = st.menus; S.cfg = st.settings;
-      return;
-    }
-  } catch (_) { /* なければ空で始める */ }
-  await Store.putSettings(S.cfg);
-}
-
 /* ========== オフライン（Service Worker） ========== */
 // 新しい版が入ったら、記録の途中でなければ読み直す
 function maybeReload() {

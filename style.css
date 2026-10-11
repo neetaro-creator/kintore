@@ -525,3 +525,8 @@ html, body { height: 100%; overflow: hidden; }
 .exset .m.has { color: var(--text); }
 .exset .g { white-space: nowrap; font-size: 12px; }
 .field select { padding-right: 34px; background-repeat: no-repeat; background-position: right 12px center; background-size: 12px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E"); }
+.steps { margin: 2px 0 12px; }
+.steps > div { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14.5px; line-height: 1.5; }
+.steps > div:first-child { border-top: 0; }
+.steps > div > b { flex: none; width: 24px; height: 24px; border-radius: 12px; background: var(--accent); color: var(--on-accent); font-size: 13px; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
+.steps em { font-style: normal; font-weight: 800; }

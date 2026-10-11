@@ -203,6 +203,30 @@
     return !!base && diffDays(today, base) >= 30;
   }
 
+  /* ---------- プリセット種目 ---------- */
+  // プリセットの1行: [名前, 区分, 主働筋, 補助筋, レンジ下限, 上限, セット数, 増量幅, 代替の名前[]（任意）]
+  function presetExercise(p) {
+    return { name: p[0], cat: p[1], main: p[2], aux: p[3] ? [p[3]] : [], range: [p[4], p[5]], sets: p[6], inc: p[7], rest: null, memo: '', alts: [] };
+  }
+  // プリセットを種目にする。代替も一緒に種目にして、IDでつなぐ。同じ名前の種目があればそれを使う。
+  // 返り値: { id, added: [新しく作った種目] }。exercises は書き換えない
+  function materialize(name, presets, exercises, makeId) {
+    const byName = {};
+    Object.values(exercises).forEach(e => { byName[e.name] = e; });
+    const added = [];
+    const get = n => {
+      if (byName[n]) return byName[n];
+      const p = presets.find(x => x[0] === n);
+      if (!p) return null;
+      const e = { id: makeId(), ...presetExercise(p) };
+      byName[n] = e; added.push(e);
+      e.alts = (p[8] || []).map(get).filter(Boolean).map(a => a.id);
+      return e;
+    };
+    const e = get(name);
+    return { id: e ? e.id : null, added };
+  }
+
   /* ---------- 4.9 バックアップ ---------- */
   function defaultSettings() {
     return {
@@ -334,6 +358,7 @@
     weeklyActual, targetMuscles, weeklyPlan, level, levelLabel,
     copyDay, copyExercise, restFor,
     dayTotals, doneDates, usage, lastDoneByMuscle, incPercent, incOutOfRange, backupDue,
+    presetExercise, materialize,
     defaultSettings, fromBackup, parseBackup, makeBackup, menuLabel, toCsv,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
