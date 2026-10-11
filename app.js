@@ -1,287 +1,73 @@
 'use strict';
-/* フェーズ0: 見た目の試作。データはすべてダミー。保存もしない（タイマーの終了時刻だけ localStorage）。 */
+/* 画面と操作。ロジックは logic.js（純関数）、保存は db.js、人体図は figure.js、並べ替えは drag.js、タイマーは timer.js。 */
 
-/* ========== ダミーデータ ========== */
-const BUILD = 'p0-1011-p';
-const MUSCLES = ['胸', '背中', '三角筋側部', '三角筋後部', '上腕二頭', '上腕三頭', '大腿四頭', 'ハムストリングス', 'ふくらはぎ', '腹筋'];
-const CAT_REST = { 多: 150, 単: 105, カ腹: 75 };
+const BUILD = 'p1-1011-a'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
+const L = Logic;
+const MUSCLES = L.MUSCLES;
+const CATS = L.CATS;
 const CAT_NAME = { 多: '多関節', 単: '単関節', カ腹: 'カーフ・腹筋' };
 
-// [id, 名前, 区分, 主働筋, 補助筋, [下限,上限], セット数, 増量幅, 代替]
-const EX_ROWS = [
-  ['bench', 'ベンチプレス', '多', '胸', '上腕三頭', [8, 10], 3, 2.5, ['ダンベルベンチ', 'スミスマシン・ベンチ']],
-  ['incline', 'インクラインベンチ', '多', '胸', '上腕三頭', [8, 10], 3, 2.5, ['インクラインダンベルプレス', 'マシンのインクラインプレス']],
-  ['csrow', 'チェストサポートロウ', '多', '背中', '上腕二頭', [8, 10], 3, 2.5, ['傾斜ベンチにうつ伏せのダンベルロウ', '片手ダンベルロウ']],
-  ['sider', 'サイドレイズ', '単', '三角筋側部', null, [12, 15], 3, 1, ['ケーブルサイドレイズ', 'マシンサイドレイズ']],
-  ['pdown', 'プレスダウン', '単', '上腕三頭', null, [12, 15], 2, 2.5, ['オーバーヘッドのダンベルエクステンション', 'スカルクラッシャー']],
-  ['dbcurl', 'インクラインダンベルカール', '単', '上腕二頭', null, [10, 12], 2, 1, ['ケーブルカール', '立位のダンベルカール']],
-  ['hack', 'ハックスクワット', '多', '大腿四頭', null, [8, 10], 3, 5, ['レッグプレス', 'スミススクワット', 'ダンベルのブルガリアンスクワット']],
-  ['legext', 'レッグエクステンション', '単', '大腿四頭', null, [12, 15], 2, 2.5, []],
-  ['calf', 'カーフレイズ', 'カ腹', 'ふくらはぎ', null, [12, 15], 3, 2.5, ['段差での片足カーフレイズ', 'レッグプレスでのカーフレイズ']],
-  ['abs', '腹筋（マシン）', 'カ腹', '腹筋', null, [15, 20], 3, 2.5, ['ケーブルクランチ', 'ハンギングレッグレイズ']],
-  ['halfdl', 'ハーフデッドリフト', '多', '背中', 'ハムストリングス', [6, 8], 3, 5, ['ルーマニアンデッドリフト', 'ラックプル']],
-  ['chin', '懸垂', '多', '背中', '上腕二頭', [8, 10], 3, 2.5, ['ラットプルダウン']],
-  ['dbpress', 'インクラインダンベルプレス', '多', '胸', '上腕三頭', [8, 10], 3, 2.5, ['インクラインベンチ', 'マシンのインクラインプレス']],
-  ['reard', 'リアデルト', '単', '三角筋後部', null, [12, 15], 3, 2.5, ['前傾のダンベルリアレイズ', 'ケーブルのフェイスプル']],
-  ['legcurl', 'レッグカール', '単', 'ハムストリングス', null, [10, 12], 3, 2.5, ['ダンベルのルーマニアンデッドリフト', 'ノルディックカール']],
-  ['ezcurl', 'EZバーカール', '単', '上腕二頭', null, [8, 10], 2, 2.5, ['ダンベルカール', 'ケーブルカール']],
-];
-const EX = {};
-EX_ROWS.forEach(r => {
-  EX[r[0]] = { id: r[0], name: r[1], cat: r[2], main: r[3], aux: r[4], range: r[5], sets: r[6], inc: r[7], alts: r[8], memo: r[0] === 'hack' ? 'シート位置 3、足は肩幅やや外' : '' };
-});
-
-// 種目ライブラリ: 使用回数（ダミー）。代替種目も、種目として登録する
-const USE = { bench: 14, incline: 9, dbpress: 8, csrow: 10, halfdl: 6, chin: 7, sider: 12, reard: 8, pdown: 9, dbcurl: 6, ezcurl: 5, hack: 11, legext: 10, legcurl: 8, calf: 9, abs: 9 };
-const DAYS_AGO = { 胸: 4, 背中: 4, 三角筋側部: 4, 三角筋後部: 11, 上腕二頭: 4, 上腕三頭: 4, 大腿四頭: 6, ハムストリングス: 6, ふくらはぎ: 6, 腹筋: 6 };
-(function addAltsToLibrary() {
-  Object.values(EX).slice().forEach(e => {
-    e.alts.forEach((name, k) => {
-      if (Object.values(EX).some(x => x.name === name)) return;
-      const id = 'a_' + e.id + '_' + k;
-      EX[id] = { id, name, cat: e.cat, main: e.main, aux: e.aux, range: e.range, sets: e.sets, inc: e.inc, alts: [], memo: '' };
-      USE[id] = 0;
-    });
-  });
-})();
-
-// プリセット種目: [名前, 区分, 主働筋, 補助筋, レンジ下限, 上限, セット数, 増量幅]
-const EX_PRESETS = [
-  // 胸
-  ['ダンベルベンチプレス', '多', '胸', '上腕三頭', 8, 12, 3, 2], ['チェストプレス（マシン）', '多', '胸', '上腕三頭', 8, 12, 3, 2.5],
-  ['ペックデック（マシンフライ）', '単', '胸', null, 10, 15, 3, 2.5], ['ケーブルフライ', '単', '胸', null, 10, 15, 3, 2.5],
-  ['ダンベルフライ', '単', '胸', null, 10, 12, 3, 1], ['インクラインダンベルフライ', '単', '胸', null, 10, 12, 3, 1],
-  ['スミスマシンインクラインプレス', '多', '胸', '上腕三頭', 8, 10, 3, 2.5], ['デクラインベンチプレス', '多', '胸', '上腕三頭', 8, 10, 3, 2.5],
-  ['ディップス（胸）', '多', '胸', '上腕三頭', 8, 12, 3, 2.5], ['ケーブルクロスオーバー', '単', '胸', null, 12, 15, 3, 2.5],
-  ['ローケーブルフライ', '単', '胸', null, 12, 15, 3, 2.5], ['腕立て伏せ', '多', '胸', '上腕三頭', 10, 20, 3, 0],
-  // 背中
-  ['ベントオーバーロウ', '多', '背中', '上腕二頭', 8, 10, 3, 2.5], ['シーテッドロウ', '多', '背中', '上腕二頭', 10, 12, 3, 2.5],
-  ['Tバーロウ', '多', '背中', '上腕二頭', 8, 12, 3, 2.5], ['ハンマーストレングス・ロウ（マシン）', '多', '背中', '上腕二頭', 8, 12, 3, 2.5],
-  ['ナローグリップ・ラットプルダウン', '多', '背中', '上腕二頭', 8, 12, 3, 2.5], ['ワンハンド・ケーブルロウ', '多', '背中', '上腕二頭', 10, 12, 3, 2.5],
-  ['ストレートアームプルダウン', '単', '背中', null, 12, 15, 3, 2.5], ['ダンベルプルオーバー', '単', '背中', null, 10, 12, 3, 2],
-  ['デッドリフト', '多', '背中', 'ハムストリングス', 5, 8, 3, 5], ['バックエクステンション', '単', '背中', null, 12, 15, 3, 0],
-  ['ダンベルシュラッグ', '単', '背中', null, 10, 15, 3, 2], ['チンニング（逆手）', '多', '背中', '上腕二頭', 6, 10, 3, 2.5],
-  // 三角筋側部
-  ['ダンベルショルダープレス', '多', '三角筋側部', '上腕三頭', 8, 12, 3, 2], ['マシンショルダープレス', '多', '三角筋側部', '上腕三頭', 8, 12, 3, 2.5],
-  ['バーベルショルダープレス', '多', '三角筋側部', '上腕三頭', 6, 10, 3, 2.5], ['アーノルドプレス', '多', '三角筋側部', '上腕三頭', 8, 12, 3, 2],
-  ['ワンハンド・ケーブルサイドレイズ', '単', '三角筋側部', null, 12, 15, 3, 1], ['アップライトロウ', '多', '三角筋側部', null, 8, 12, 3, 2.5],
-  ['フロントレイズ', '単', '三角筋側部', null, 12, 15, 3, 1], ['リーニング・サイドレイズ', '単', '三角筋側部', null, 12, 15, 3, 1],
-  // 三角筋後部
-  ['リアデルトフライ（マシン）', '単', '三角筋後部', null, 12, 15, 3, 2.5], ['フェイスプル', '単', '三角筋後部', null, 12, 15, 3, 2.5],
-  ['ベントオーバー・リアレイズ', '単', '三角筋後部', null, 12, 15, 3, 1], ['ケーブル・リアデルトフライ', '単', '三角筋後部', null, 12, 15, 3, 1],
-  ['バンドプルアパート', '単', '三角筋後部', null, 15, 20, 3, 0],
-  // 上腕二頭
-  ['バーベルカール', '単', '上腕二頭', null, 8, 12, 3, 2.5], ['ハンマーカール', '単', '上腕二頭', null, 10, 12, 3, 1],
-  ['プリーチャーカール', '単', '上腕二頭', null, 8, 12, 3, 2.5], ['コンセントレーションカール', '単', '上腕二頭', null, 10, 12, 3, 1],
-  ['スパイダーカール', '単', '上腕二頭', null, 10, 12, 3, 1], ['リバースカール', '単', '上腕二頭', null, 10, 12, 2, 2.5],
-  ['ケーブル・ハンマーカール', '単', '上腕二頭', null, 10, 12, 3, 2.5],
-  // 上腕三頭
-  ['ロープ・プレスダウン', '単', '上腕三頭', null, 12, 15, 3, 2.5], ['リバースグリップ・プレスダウン', '単', '上腕三頭', null, 12, 15, 3, 2.5],
-  ['ライイング・トライセプスエクステンション（EZバー）', '単', '上腕三頭', null, 10, 12, 3, 2.5], ['フレンチプレス（ダンベル）', '単', '上腕三頭', null, 10, 12, 3, 2],
-  ['ケーブル・オーバーヘッドエクステンション', '単', '上腕三頭', null, 10, 15, 3, 2.5], ['ナローグリップ・ベンチプレス', '多', '上腕三頭', '胸', 6, 10, 3, 2.5],
-  ['ディップス（上腕三頭）', '多', '上腕三頭', '胸', 8, 12, 3, 2.5], ['キックバック', '単', '上腕三頭', null, 12, 15, 3, 1],
-  // 大腿四頭
-  ['バーベルスクワット', '多', '大腿四頭', null, 6, 10, 3, 5], ['フロントスクワット', '多', '大腿四頭', null, 6, 10, 3, 2.5],
-  ['ゴブレットスクワット', '多', '大腿四頭', null, 10, 15, 3, 2.5], ['ウォーキングランジ', '多', '大腿四頭', null, 10, 12, 3, 2],
-  ['シシースクワット', '単', '大腿四頭', null, 10, 15, 3, 0], ['ワンレッグ・レッグプレス', '多', '大腿四頭', null, 10, 12, 3, 5],
-  // ハムストリングス
-  ['ライイング・レッグカール', '単', 'ハムストリングス', null, 10, 12, 3, 2.5], ['シーテッド・レッグカール', '単', 'ハムストリングス', null, 10, 12, 3, 2.5],
-  ['スティッフレッグド・デッドリフト', '多', 'ハムストリングス', '背中', 8, 10, 3, 5], ['グッドモーニング', '多', 'ハムストリングス', '背中', 8, 12, 3, 2.5],
-  ['ワンレッグ・ルーマニアンデッドリフト', '多', 'ハムストリングス', null, 8, 12, 3, 2], ['ノルディックハムカール', '単', 'ハムストリングス', null, 6, 10, 3, 0],
-  // ふくらはぎ
-  ['スタンディング・カーフレイズ', 'カ腹', 'ふくらはぎ', null, 10, 15, 3, 2.5], ['シーテッド・カーフレイズ', 'カ腹', 'ふくらはぎ', null, 12, 20, 3, 2.5],
-  ['ドンキーカーフレイズ', 'カ腹', 'ふくらはぎ', null, 12, 15, 3, 2.5], ['ワンレッグ・カーフレイズ（ダンベル）', 'カ腹', 'ふくらはぎ', null, 12, 15, 3, 1],
-  // 腹筋
-  ['クランチ', 'カ腹', '腹筋', null, 15, 25, 3, 0], ['レッグレイズ', 'カ腹', '腹筋', null, 12, 20, 3, 0],
-  ['アブローラー', 'カ腹', '腹筋', null, 8, 15, 3, 0], ['シットアップ', 'カ腹', '腹筋', null, 15, 25, 3, 0],
-  ['ロシアンツイスト', 'カ腹', '腹筋', null, 20, 30, 3, 0], ['ドラゴンフラッグ', 'カ腹', '腹筋', null, 5, 10, 3, 0],
-  ['サイドクランチ', 'カ腹', '腹筋', null, 15, 20, 3, 0],
-];
-(function addPresets() {
-  const have = new Set(Object.values(EX).map(e => e.name));
-  EX_PRESETS.forEach((p, i) => {
-    if (have.has(p[0])) return;
-    const id = 'p_' + i;
-    EX[id] = { id, name: p[0], cat: p[1], main: p[2], aux: p[3], range: [p[4], p[5]], sets: p[6], inc: p[7], alts: [], memo: '' };
-    USE[id] = 0;
-  });
-})();
+/* ========== データ（起動時に IndexedDB から読む） ========== */
+let EX = {};   // 種目ID → 種目
+let DAYS = {}; // 日付 → 日の記録
 
 const S = {
+  ready: false,
   tab: 'home',
-  day: null,
+  day: null,      // 開いている日（保存前の作業用。種目ごとに画面用の uid を持つ）
+  dayOpen: null,
   cal: (() => { const n = new Date(); return { y: n.getFullYear(), m: n.getMonth() }; })(),
   body: 'front',
   muscle: null,
-  menuPick: 'lower',
-  freq: 3,
-  method: 1,
-  rest: { ...CAT_REST },
-  target: Object.fromEntries(MUSCLES.map(m => [m, 10])),
-  hide: {},
-  menus: [
-    { id: 'upA', name: '上半身A', paused: false, ex: ['bench', 'incline', 'csrow', 'sider', 'pdown', 'dbcurl'] },
-    { id: 'lower', name: '下半身', paused: false, ex: ['hack', 'legext', 'calf', 'abs'] },
-    { id: 'upB', name: '上半身B', paused: false, ex: ['halfdl', 'chin', 'dbpress', 'reard', 'legcurl', 'ezcurl'] },
-  ],
-  openMenu: 'lower',
+  menuPick: null, // ホームで選んだメニュー。null ならおすすめ
+  menus: [],
+  cfg: L.defaultSettings(),
+  openMenu: null,
   pick: { also: false, mode: 'day' },
+  persisted: null,
+  storeError: false,
+  updated: false,
 };
-
-// 直近7日のダミー実績（種目ID → セット数）
-const RECENT = { bench: 4, incline: 3, csrow: 3, sider: 3, pdown: 2, dbcurl: 2, dbpress: 3, halfdl: 3, chin: 3, hack: 3, legext: 2 };
-const BASE_W = { bench: 70, incline: 60, csrow: 50, sider: 8, pdown: 30, dbcurl: 10, hack: 100, legext: 55, calf: 80, abs: 45, halfdl: 90, chin: 10, dbpress: 24, reard: 25, legcurl: 40, ezcurl: 25 };
 
 /* ========== ユーティリティ ========== */
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const pad = n => String(n).padStart(2, '0');
-const key = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const WD = ['日', '月', '火', '水', '木', '金', '土'];
-const today = new Date();
-const todayKey = key(today);
-const fmtKg = n => (Math.round(n * 10) / 10).toString();
-const e1rm = (w, r) => w * (1 + 0.025 * r); // O'Connor式
+const todayKey = () => L.dateKey(new Date());
+const fmtKg = L.fmtKg;
+const newId = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const rangeText = e => (e.range[0] === e.range[1] ? String(e.range[0]) : e.range.join('-'));
+const dateJa = k => { const d = L.parseKey(k); return `${d.getMonth() + 1}月${d.getDate()}日（${WD[d.getDay()]}）`; };
+const actual = () => L.weeklyActual(DAYS, EX, todayKey()).totals;
 
-const DONE_DAYS = new Set([-1, -3, -5, -8, -10, -12, -15, -17, -20, -24, -27, -31, -34].map(o => {
-  const d = new Date(today); d.setDate(d.getDate() + o); return key(d);
-}));
-
-function histFor(id, n = 3) {
-  const b = BASE_W[id] || 20, e = EX[id], hi = e.range[1];
-  const mk = (off, w, reps, ws) => {
-    const d = new Date(today); d.setDate(d.getDate() - off);
-    return { d: `${d.getMonth() + 1}/${d.getDate()}`, date: d, w, reps, sets: reps.map((r, k) => ({ w: ws ? ws[k] : w, r, l: false })) };
-  };
-  const all = [
-    mk(3, b, [hi, hi - 1, hi - 1].slice(0, e.sets)),
-    mk(10, b - e.inc, [hi, hi, hi - 1].slice(0, e.sets)),
-    mk(17, b - e.inc, [hi - 1, hi - 1, hi - 2].slice(0, e.sets)),
-    mk(24, b - e.inc, [hi, hi - 1, hi - 2].slice(0, e.sets), [b - e.inc, b - e.inc, b - 2 * e.inc].slice(0, e.sets)),
-    mk(31, b - 2 * e.inc, [hi, hi, hi].slice(0, e.sets)),
-    mk(38, b - 2 * e.inc, [hi - 1, hi - 2, hi - 2].slice(0, e.sets)),
-  ];
-  return all.slice(0, n);
-}
-function fmtHist(h) {
-  const same = h.reps;
-  return `${h.d} ${fmtKg(h.w)}kg ${same.join('/')}`;
+function toast(msg) {
+  let t = $('#toast');
+  if (!t) { t = document.createElement('div'); t.id = 'toast'; document.body.appendChild(t); }
+  t.textContent = msg;
+  t.classList.add('on');
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => t.classList.remove('on'), 2600);
 }
 
-function plan() {
-  const act = S.menus.filter(m => !m.paused);
-  const out = Object.fromEntries(MUSCLES.map(m => [m, 0]));
-  act.forEach(m => m.ex.forEach(id => {
-    const e = EX[id];
-    out[e.main] += e.sets;
-    if (e.aux) out[e.aux] += e.sets * 0.5;
-  }));
-  const k = act.length ? S.freq / act.length : 0;
-  MUSCLES.forEach(m => { out[m] *= k; });
-  return out;
+/* ========== 保存 ========== */
+function saveFail(e) {
+  console.error(e);
+  toast('保存できませんでした');
 }
-function targetMuscles() {
-  const set = new Set();
-  S.menus.filter(m => !m.paused).forEach(m => m.ex.forEach(id => set.add(EX[id].main)));
-  return set;
+function save(fn) {
+  try { Promise.resolve(fn()).catch(saveFail); } catch (e) { saveFail(e); }
 }
-function actual() {
-  const out = Object.fromEntries(MUSCLES.map(m => [m, 0]));
-  Object.entries(RECENT).forEach(([id, n]) => {
-    const e = EX[id];
-    out[e.main] += n;
-    if (e.aux) out[e.aux] += n * 0.5;
-  });
-  return out;
-}
-function level(n, tgt) {
-  if (n <= 0) return 0;
-  if (n >= (tgt || 10)) return 3;
-  if (n >= 4) return 2;
-  return 1;
-}
-const LV_LABEL = ['実績なし', '最小有効量未満', '中間', '目標到達'];
-function lvLabel(n, tgt) {
-  if (n >= tgt) return '目標到達';
-  if (n >= 4) return '中間';
-  return '最小有効量未満';
-}
-const barLv = (n, tgt) => (n >= tgt ? 3 : n >= 4 ? 2 : n > 0 ? 1 : 0);
-
-function recommended() { return S.menus.find(m => m.id === S.menuPick) || S.menus[0]; }
-
-/* ========== 人体図（自作SVG・様式化） ========== */
-// m:1 は左右反転コピーも描く。座標は 240x420、中心 x=120。
-const HEAD = 'M120 6C133 6 139 18 138 32C137 44 130 52 120 52C110 52 103 44 102 32C101 18 107 6 120 6Z';
-const ARM_UP = 'M52 122L70 120Q74 144 68 170L52 168Q46 144 52 122Z';
-const FOREARM = 'M50 168L68 170Q70 200 62 228L48 226Q42 196 50 168Z';
-const HAND = 'M48 228L62 230Q64 248 58 254Q48 254 46 244Z';
-const DELT = 'M90 76Q66 72 54 90Q48 104 52 122L70 120Q74 100 88 92Z';
-const KNEE = 'M90 316Q103 324 117 314L116 332L94 334Z';
-const FOOT = 'M100 392L113 392L116 408L94 408Z';
-const FIG = {
-  front: {
-    neutral: [
-      { d: HEAD },
-      { d: 'M107 50L106 66L120 74L120 50Z', m: 1 },
-      { d: 'M106 66Q92 70 84 78L92 90L118 86L120 74Z', m: 1 },
-      { d: FOREARM, m: 1 }, { d: HAND, m: 1 },
-      { d: 'M82 120L104 134L104 206L90 202Q84 164 82 120Z', m: 1 },
-      { d: 'M92 204L148 204L156 232Q140 250 120 252Q100 250 84 232Z' },
-      { d: KNEE, m: 1 }, { d: FOOT, m: 1 },
-    ],
-    muscles: {
-      胸: [{ d: 'M118 86L90 90Q80 94 80 108Q82 124 100 130Q112 132 118 128Z', m: 1 }],
-      三角筋側部: [{ d: DELT, m: 1 }],
-      上腕二頭: [{ d: ARM_UP, m: 1 }],
-      腹筋: [{ d: 'M107 134h12v14h-12zM107 151h12v14h-12zM107 168h12v14h-12zM107 185h12v14h-12z', m: 1 }],
-      大腿四頭: [{ d: 'M84 232L119 246L117 314Q103 324 90 316Q74 282 76 256Q78 240 84 232Z', m: 1 }],
-      ふくらはぎ: [{ d: 'M94 334L116 332L113 392L100 392Q90 362 94 334Z', m: 1 }],
-    },
-    lines: [
-      { d: 'M84 102Q96 114 118 114', m: 1 }, { d: 'M72 94Q64 106 62 120', m: 1 }, { d: 'M61 128Q64 146 60 166', m: 1 },
-      { d: 'M101 254Q97 286 105 312', m: 1 }, { d: 'M88 264Q86 290 94 308', m: 1 }, { d: 'M104 342Q100 366 106 388', m: 1 },
-    ],
-  },
-  back: {
-    neutral: [
-      { d: HEAD },
-      { d: 'M107 50L106 62Q112 66 120 68L120 50Z', m: 1 },
-      { d: FOREARM, m: 1 }, { d: HAND, m: 1 },
-      { d: 'M120 196L96 198Q84 214 86 240Q104 254 120 248Z', m: 1 },
-      { d: KNEE, m: 1 }, { d: FOOT, m: 1 },
-    ],
-    muscles: {
-      背中: [
-        { d: 'M120 58L106 62Q92 70 86 78L92 92Q108 100 120 126Z', m: 1 },
-        { d: 'M92 92Q108 100 120 126L120 196L98 196Q82 160 80 124Q82 100 92 92Z', m: 1 },
-      ],
-      三角筋後部: [{ d: DELT, m: 1 }],
-      上腕三頭: [{ d: ARM_UP, m: 1 }],
-      ハムストリングス: [{ d: 'M86 244Q104 256 119 250L117 314Q103 324 90 316Q76 284 78 262Q80 250 86 244Z', m: 1 }],
-      ふくらはぎ: [{ d: 'M95 332Q86 350 92 372Q96 384 101 392L112 392Q118 360 117 332Z', m: 1 }],
-    },
-    lines: [
-      { d: 'M120 62L120 196' }, { d: 'M98 100Q104 114 114 122', m: 1 }, { d: 'M100 152Q108 170 118 178', m: 1 },
-      { d: 'M62 132Q66 148 60 168', m: 1 }, { d: 'M72 94Q64 106 62 120', m: 1 },
-      { d: 'M104 262Q102 290 106 312', m: 1 }, { d: 'M105 340Q101 366 106 390', m: 1 },
-    ],
-  },
-};
-const MIRROR = 'transform="translate(240 0) scale(-1 1)"';
-function paths(list) {
-  return list.map(p => `<path d="${p.d}"/>` + (p.m ? `<path d="${p.d}" ${MIRROR}/>` : '')).join('');
-}
-function figureSvg(side) {
-  const f = FIG[side], act = actual();
-  const defs = '<defs>' + [0, 1, 2, 3, 4].map(i => `<linearGradient id="g${i}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--g${i}a)"/><stop offset="1" style="stop-color:var(--g${i}b)"/></linearGradient>`).join('') + '</defs>';
-  const neutral = `<g class="neutral">${paths(f.neutral)}</g>`;
-  const ms = Object.entries(f.muscles).map(([name, list]) => {
-    const lv = level(act[name], S.target[name]);
-    return `<g data-m="${name}" class="${S.muscle === name ? 'sel' : ''}" style="fill:url(#g${lv})">${paths(list)}</g>`;
-  }).join('');
-  const lines = `<g class="lines">${paths(f.lines)}</g>`;
-  return `<svg viewBox="0 0 240 420" role="img" aria-label="${side === 'front' ? '前面' : '背面'}の人体図">${defs}${neutral}${ms}${lines}</svg>`;
+const saveEx = e => save(() => Store.putExercise(e));
+const saveMenus = () => save(() => Store.putMenus(S.menus));
+const saveCfg = () => save(() => Store.putSettings(S.cfg));
+// 開いている日を保存する。種目が1つもなくなった日は消す
+function saveDay() {
+  const D = S.day;
+  if (!D) return;
+  const clean = { date: D.date, menuId: D.menuId, ex: D.ex.map(e => ({ id: e.id, orig: e.orig, sets: e.sets.map(s => ({ w: s.w, r: s.r, l: s.l })) })) };
+  if (clean.ex.length) { DAYS[D.date] = clean; save(() => Store.putDay(clean)); }
+  else if (DAYS[D.date]) { delete DAYS[D.date]; save(() => Store.delDay(D.date)); }
 }
 
 /* ========== 画面 ========== */
@@ -289,27 +75,68 @@ function render() {
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === S.tab && !(S.day && S.tab !== 'home')));
   const v = $('#view');
   const top = v.scrollTop;
-  v.innerHTML = S.day ? viewDay() : { home: viewHome, body: viewBody, menu: viewMenu, settings: viewSettings }[S.tab]();
+  v.innerHTML = !S.ready ? '' : S.day ? viewDay() : { home: viewHome, body: viewBody, menu: viewMenu, settings: viewSettings }[S.tab]();
   if (S.keepScroll) v.scrollTop = top;
 }
+function rerender() { S.keepScroll = true; render(); S.keepScroll = false; }
 
 /* --- ホーム --- */
+function pickedMenu() {
+  const ok = S.menus.filter(m => !m.paused && m.ex.length);
+  return ok.find(m => m.id === S.menuPick) || ok.find(m => m.id === L.recommend(S.menus, DAYS, S.cfg.method)) || null;
+}
 function viewHome() {
-  const { y, m } = S.cal;
-  const first = new Date(y, m, 1), startDow = first.getDay();
+  const { y, m } = S.cal, today = todayKey();
+  const done = L.doneDates(DAYS);
+  const cell = (d, out) => {
+    const k = L.dateKey(d);
+    const cls = [out ? 'out' : '', done.has(k) ? 'done' : '', k === today ? 'today' : ''].join(' ');
+    return `<button class="${cls}" data-act="day" data-d="${k}"><span class="d">${d.getDate()}</span></button>`;
+  };
+  const startDow = new Date(y, m, 1).getDay();
   const days = new Date(y, m + 1, 0).getDate();
   let cells = '';
-  for (let i = 0; i < startDow; i++) {
-    const d = new Date(y, m, 1 - (startDow - i));
-    cells += cell(d, true);
-  }
+  for (let i = 0; i < startDow; i++) cells += cell(new Date(y, m, 1 - (startDow - i)), true);
   for (let d = 1; d <= days; d++) cells += cell(new Date(y, m, d), false);
   const tail = (7 - ((startDow + days) % 7)) % 7;
   for (let i = 1; i <= tail; i++) cells += cell(new Date(y, m + 1, i), true);
-  const rec = recommended();
-  const others = S.menus.filter(x => !x.paused);
+
+  const due = L.backupDue(S.cfg.lastBackup, [...done][0] || null, today);
+  const T = DAYS[today];
+  let card;
+  if (T) {
+    const t = L.dayTotals(T);
+    card = `
+      <div class="sub">今日の記録</div>
+      <div class="rec-name">${esc(L.menuLabel(T, S.menus) || 'メニューなし')}</div>
+      <div class="sub" style="margin-bottom:12px">${T.ex.length}種目 ・ ${t.sets}セット記録済み</div>
+      <button class="btn primary block" data-act="todayOpen" style="min-height:56px;font-size:18px">今日の記録を開く</button>`;
+  } else if (!S.menus.length && !Object.keys(DAYS).length) {
+    card = `
+      <div class="rec-name" style="font-size:22px">メニューがまだありません</div>
+      <div class="sub" style="margin-bottom:12px">初期メニュー（seed.json）かバックアップを読み込めます。メニュータブで一から作ることもできます。</div>
+      <button class="btn primary block" data-act="restore" style="min-height:56px;font-size:18px">初期メニューを読み込む</button>
+      <button class="btn block ghost" data-act="todayFree" style="margin-top:10px">メニューなしで始める</button>`;
+  } else {
+    const rec = pickedMenu();
+    const recId = L.recommend(S.menus, DAYS, S.cfg.method);
+    const last = rec && L.lastPerformed(DAYS, S.menus)[rec.id];
+    const ago = last ? L.diffDays(today, last) : null;
+    const chips = S.menus.filter(x => !x.paused && x.ex.length);
+    card = `
+      <div class="sub">${rec && rec.id !== recId ? '選んだメニュー' : '今日のおすすめメニュー'}</div>
+      ${rec ? `
+      <div class="rec-name">${esc(rec.name)}</div>
+      <div class="sub">${rec.ex.length}種目 ・ ${last ? `最終実施 ${ago}日前` : 'まだ実施なし'}</div>
+      <div class="chips">${chips.map(x => `<button class="chip ${x.id === rec.id ? 'on' : ''}" data-act="pick" data-id="${x.id}">${esc(x.name)}</button>`).join('')}</div>
+      <button class="btn primary block" data-act="today" style="min-height:56px;font-size:18px">このメニューで始める</button>` : `
+      <div class="rec-name" style="font-size:22px">すすめられるメニューがありません</div>
+      <div class="sub" style="margin-bottom:12px">メニュータブで、種目の追加か休止の解除をしてください</div>`}
+      <button class="btn block ghost" data-act="todayFree" style="margin-top:10px">メニューなしで始める</button>`;
+  }
   return `
-    <div class="banner">前回のバックアップから30日以上たっています。設定から保存してください。</div>
+    ${S.storeError ? '<div class="banner">この画面では記録を保存できません（プライベートブラウズでは保存できません）。</div>' : ''}
+    ${due ? '<div class="banner">バックアップを30日以上保存していません。設定から保存してください。</div>' : ''}
     <div class="cal-head">
       <button data-act="cal" data-d="-1" aria-label="前の月">‹</button>
       <div class="ttl">${y}年${m + 1}月</div>
@@ -317,66 +144,39 @@ function viewHome() {
     </div>
     <div class="cal-week">${WD.map(w => `<div>${w}</div>`).join('')}</div>
     <div class="cal-grid">${cells}</div>
-
-    <div class="card" style="margin-top:14px">
-      <div class="sub">今日のおすすめメニュー</div>
-      ${rec ? `
-      <div class="rec-name">${esc(rec.name)}</div>
-      <div class="sub">${rec.ex.length}種目 ・ 最終実施 6日前</div>
-      <div class="chips">${others.map(x => `<button class="chip ${x.id === rec.id ? 'on' : ''}" data-act="pick" data-id="${x.id}">${esc(x.name)}</button>`).join('')}</div>
-      <button class="btn primary block" data-act="today" style="min-height:56px;font-size:18px">このメニューで始める</button>` : `
-      <div class="rec-name">メニューなし</div>
-      <div class="sub" style="margin-bottom:12px">メニュータブで追加できます</div>`}
-      <button class="btn block ghost" data-act="todayFree" style="margin-top:10px">メニューなしで始める</button>
-    </div>
+    <div class="card" style="margin-top:14px">${card}</div>
     <button class="btn block" data-act="rm">RM計算</button>`;
-}
-function cell(d, out) {
-  const k = key(d);
-  const cls = [out ? 'out' : '', DONE_DAYS.has(k) ? 'done' : '', k === todayKey ? 'today' : ''].join(' ');
-  return `<button class="${cls}" data-act="day" data-d="${k}"><span class="d">${d.getDate()}</span></button>`;
 }
 
 /* --- 日別 --- */
 let UID = 1;
-function newDay(dateKey, menu) {
-  const preset = {
-    hack: [{ w: 100, r: 10, l: false }, { w: 100, r: 9, l: true }],
-  };
-  if (!menu) return { date: dateKey, menuId: null, menuName: 'メニューなし', ex: [] };
-  const D = {
-    date: dateKey,
-    menuId: menu.id,
-    menuName: menu.name,
-    ex: menu.ex.map(id => ({ uid: UID++, id, alt: null, sets: (preset[id] || []).map(s => ({ ...s })) })),
-  };
-  return D;
+const menuEntries = menu => menu.ex.filter(id => EX[id]).map(id => ({ uid: UID++, id, orig: null, sets: [] }));
+// 保存済みの日があればそれを開く。なければ、メニュー（任意）から新しい日を作る（操作するまで保存しない）
+function openDay(date, menu) {
+  const saved = DAYS[date];
+  S.day = saved
+    ? { date, menuId: saved.menuId, ex: saved.ex.filter(e => EX[e.id]).map(e => ({ uid: UID++, id: e.id, orig: e.orig, sets: e.sets.map(s => ({ ...s })) })) }
+    : { date, menuId: menu ? menu.id : null, ex: menu ? menuEntries(menu) : [] };
+  openFirstUnfinished();
+  S.keepScroll = false; render(); $('#view').scrollTop = 0;
 }
 function openFirstUnfinished() {
   const e = S.day.ex.find(x => x.sets.length < EX[x.id].sets) || S.day.ex[0];
   S.dayOpen = e ? e.uid : null;
 }
-function setsSummary(sets) {
-  if (!sets.length) return '';
-  const sameW = sets.every(s => s.w === sets[0].w);
-  return sameW ? `${fmtKg(sets[0].w)}kg ${sets.map(s => s.r).join('/')}` : sets.map(s => `${fmtKg(s.w)}×${s.r}`).join(', ');
-}
 function viewDay() {
-  const D = S.day;
-  const [yy, mm, dd] = D.date.split('-').map(Number);
-  const dt = new Date(yy, mm - 1, dd);
-  const nEx = D.ex.filter(e => e.sets.length).length;
-  const nSet = D.ex.reduce((a, e) => a + e.sets.length, 0);
-  const nRep = D.ex.reduce((a, e) => a + e.sets.reduce((b, s) => b + s.r, 0), 0);
+  const D = S.day, t = L.dayTotals(D);
+  const menus = S.menus.filter(m => m.ex.length);
   return `
     <div class="day-head">
       <button class="back" data-act="back" aria-label="戻る">‹</button>
       <div class="grow">
-        <div class="row" style="gap:8px;align-items:baseline"><h1 style="margin:0;font-size:22px">${mm}月${dd}日（${WD[dt.getDay()]}）</h1><span class="sub">${esc(D.menuName)}</span></div>
-        <div class="sumline num"><b>${nEx}</b>種目 <b>${nSet}</b>セット <b>${nRep}</b>レップ</div>
+        <div class="row" style="gap:8px;align-items:baseline"><h1 style="margin:0;font-size:22px">${dateJa(D.date)}</h1><span class="sub">${esc(L.menuLabel(D, S.menus) || 'メニューなし')}</span></div>
+        <div class="sumline num"><b>${t.ex}</b>種目 <b>${t.sets}</b>セット <b>${t.reps}</b>レップ</div>
       </div>
     </div>
-    ${D.ex.length ? '' : `<div class="card empty" style="padding:28px 16px">まだ種目がありません。<br>下の「＋ 種目を追加」から入れてください。</div>`}
+    ${D.ex.length ? '' : `<div class="card empty" style="padding:22px 16px">まだ種目がありません。<br>${menus.length ? 'メニューを選ぶか、' : ''}下の「＋ 種目を追加」から入れてください。
+      ${menus.length ? `<div class="chips" style="justify-content:center;margin:14px 0 0">${menus.map(m => `<button class="chip" data-act="dayMenu" data-id="${m.id}">${esc(m.name)}</button>`).join('')}</div>` : ''}</div>`}
     <div class="dlist" data-list="day">${D.ex.map((e, i) => exCard(e, i)).join('')}</div>
     <div class="row" style="gap:8px;margin-top:4px">
       <button class="btn primary grow" data-act="dayAdd">＋ 種目を追加</button>
@@ -385,58 +185,56 @@ function viewDay() {
     ${D.ex.length ? `<div class="hint" style="margin:10px 0 0;text-align:center">種目名を長押しして、ドラッグで並べ替え</div>` : ''}`;
 }
 function exCard(e, i) {
-  const base = EX[e.id];
-  const rng = base.range[0] === base.range[1] ? base.range[0] : base.range.join('-');
+  const x = EX[e.id], slot = e.orig ? EX[e.orig] : x;
   const open = S.dayOpen === e.uid;
-  const name = e.alt ? `<span class="tag">代替</span>${esc(e.alt)}` : esc(base.name);
-  const done = e.sets.length >= base.sets;
+  const done = e.sets.length >= x.sets;
   const head = `
     <button class="exhead dgrip" data-act="exToggle" data-i="${i}" aria-expanded="${open}">
-      <span class="en">${name}${e.alt ? `<span class="sub" style="font-weight:500"> ／ ${esc(base.name)}</span>` : ''}</span>
-      <span class="ec ${done ? 'ok' : ''}">${e.sets.length}/${base.sets}</span>
+      <span class="en">${e.orig ? '<span class="tag">代替</span>' : ''}${esc(x.name)}${e.orig ? `<span class="sub" style="font-weight:500"> ／ ${esc(slot.name)}</span>` : ''}</span>
+      <span class="ec ${done ? 'ok' : ''}">${e.sets.length}/${x.sets}</span>
       <span class="chev">${open ? '▴' : '▾'}</span>
-      <span class="esum">${e.sets.length ? esc(setsSummary(e.sets)) : '未記録'} <span class="range">・ ${rng}×${base.sets}</span></span>
+      <span class="esum">${e.sets.length ? esc(L.fmtSets(e.sets)) : '未記録'} <span class="range">・ ${rangeText(x)}×${x.sets}</span></span>
     </button>`;
   if (!open) return `<div class="ex c ditem" data-i="${i}">${head}</div>`;
-  const h = histFor(e.id);
-  const up = base.inc > 0 && i % 2 === 0;
-  const sugg = base.inc === 0 ? '回数を伸ばす' : up ? `増量: +${fmtKg(base.inc)}kg` : '同じ重量で回数を伸ばす';
+  const h = L.historyOf(DAYS, e.id, S.day.date, 3);
+  const sugg = L.suggest(x, h[0]);
   return `
   <div class="ex c open ditem" data-i="${i}">
     ${head}
     <details class="hist">
-      <summary><span class="sugg">${sugg}</span><span class="pv1"> ｜ 前回 ${fmtHist(h[0])}</span><span class="more">直近3回 ▾</span></summary>
-      <div class="hist-list">${h.map(x => `<div>${fmtHist(x)}</div>`).join('')}</div>
+      <summary><span class="sugg">${sugg.text}</span>${h.length ? `<span class="pv1"> ｜ 前回 ${esc(L.fmtHist(h[0]))}</span><span class="more">直近3回 ▾</span>` : ''}</summary>
+      ${h.length ? `<div class="hist-list">${h.map(r => `<div>${esc(L.fmtHist(r))}</div>`).join('')}</div>` : ''}
     </details>
-    ${base.memo ? `<details class="memo"><summary>固定メモ</summary><p>${esc(base.memo)}</p></details>` : ''}
+    <button class="exset" data-act="editEx" data-id="${x.id}"><span class="m ${x.memo ? 'has' : ''}">${x.memo ? 'メモ: ' + esc(x.memo) : '固定メモなし'}</span><span class="g">種目の設定 ›</span></button>
     ${e.sets.length ? `<div class="set-h"><span class="a"></span><span class="b">kg</span><span class="c">回</span></div>` : ''}
-    ${e.sets.map((s, j) => setRow(i, j, s, base)).join('')}
+    ${e.sets.map((s, j) => setRow(i, j, s, x)).join('')}
     <div class="row addrow"><button class="btn primary grow addset" data-act="addset" data-i="${i}">＋ セット追加</button><button class="btn ghost addset" data-act="timer" data-i="${i}">インターバル</button></div>
     <div class="ex-actions">
-      ${base.alts.length ? `<button class="chip" data-act="alt" data-i="${i}">代替に変更</button>` : ''}
+      ${slot.alts.length ? `<button class="chip" data-act="alt" data-i="${i}">代替に変更</button>` : ''}
       <button class="chip" data-act="copyEx" data-i="${i}">過去の記録をコピー</button>
       <button class="chip dangerchip" data-act="dayDel" data-i="${i}">今日から外す</button>
     </div>
   </div>`;
 }
-function setRow(i, j, s, base) {
-  const rm = s.r <= 10 && s.l ? `e1RM ${fmtKg(e1rm(s.w, s.r))}kg` : '';
+function setRow(i, j, s, x) {
+  const rm = L.rmShown(s) ? `e1RM ${L.fmt1(L.e1rm(s.w, s.r))}kg` : '';
+  const at = `data-i="${i}" data-j="${j}"`;
   return `
   <div class="set">
     <div class="set-main">
       <span class="set-n">${j + 1}</span>
       <div class="stepper w">
-        <button data-act="step" data-i="${i}" data-j="${j}" data-f="w" data-d="-${base.inc || 1}" aria-label="重量を減らす">−</button>
-        <input class="num" inputmode="decimal" value="${fmtKg(s.w)}" data-act="inp" data-i="${i}" data-j="${j}" data-f="w" aria-label="重量kg">
-        <button data-act="step" data-i="${i}" data-j="${j}" data-f="w" data-d="${base.inc || 1}" aria-label="重量を増やす">＋</button>
+        <button data-act="step" ${at} data-f="w" data-d="-${x.inc || 1}" aria-label="重量を減らす">−</button>
+        <input class="num" inputmode="decimal" value="${fmtKg(s.w)}" data-act="inp" ${at} data-f="w" aria-label="重量kg">
+        <button data-act="step" ${at} data-f="w" data-d="${x.inc || 1}" aria-label="重量を増やす">＋</button>
       </div>
       <div class="stepper r">
-        <button data-act="step" data-i="${i}" data-j="${j}" data-f="r" data-d="-1" aria-label="回数を減らす">−</button>
-        <input class="num" inputmode="numeric" value="${s.r}" data-act="inp" data-i="${i}" data-j="${j}" data-f="r" aria-label="回数">
-        <button data-act="step" data-i="${i}" data-j="${j}" data-f="r" data-d="1" aria-label="回数を増やす">＋</button>
+        <button data-act="step" ${at} data-f="r" data-d="-1" aria-label="回数を減らす">−</button>
+        <input class="num" inputmode="numeric" value="${s.r}" data-act="inp" ${at} data-f="r" aria-label="回数">
+        <button data-act="step" ${at} data-f="r" data-d="1" aria-label="回数を増やす">＋</button>
       </div>
-      <button class="toggle lim ${s.l ? 'on' : ''}" data-act="limit" data-i="${i}" data-j="${j}" aria-pressed="${s.l}" aria-label="限界到達">限界</button>
-      <button class="del" data-act="delset" data-i="${i}" data-j="${j}" aria-label="セットを削除">✕</button>
+      <button class="toggle lim ${s.l ? 'on' : ''}" data-act="limit" ${at} aria-pressed="${s.l}" aria-label="限界到達">限界</button>
+      <button class="del" data-act="delset" ${at} aria-label="セットを削除">✕</button>
     </div>
     ${rm ? `<div class="rm">${rm}</div>` : ''}
   </div>`;
@@ -444,28 +242,21 @@ function setRow(i, j, s, base) {
 
 /* --- 部位 --- */
 function viewBody() {
-  const act = actual(), tg = targetMuscles();
+  const today = todayKey();
+  const A = L.weeklyActual(DAYS, EX, today), act = A.totals, tg = L.targetMuscles(S.menus, EX);
   const sel = S.muscle;
   let detail = '';
   if (sel) {
-    const rows = [];
-    Object.entries(RECENT).forEach(([id, n]) => {
-      const e = EX[id];
-      if (e.main === sel) rows.push([e.name, n, '主働筋 ×1', n]);
-      else if (e.aux === sel) rows.push([e.name, n, '補助筋 ×0.5', n * 0.5]);
-    });
+    const rows = A.detail[sel];
     detail = `<div class="card">
       <div class="row between"><div><h2 style="margin:0">${sel}</h2><div class="sub">内訳</div></div><span class="big num">${fmtKg(act[sel])}<span class="sub"> セット</span></span></div>
-      ${rows.length ? rows.map(r => `<div class="setrow"><div><div style="font-weight:700">${esc(r[0])}</div><div class="sub">${r[1]}セット ・ ${r[2]}</div></div><b class="num">${fmtKg(r[3])}</b></div>`).join('') : '<div class="empty">直近7日の記録はありません</div>'}
+      ${rows.length ? rows.map(r => `<div class="setrow"><div><div style="font-weight:700">${esc(EX[r.id].name)}</div><div class="sub">${r.sets}セット ・ ${r.coef === 1 ? '主働筋 ×1' : '補助筋 ×0.5'}</div></div><b class="num">${fmtKg(r.sets * r.coef)}</b></div>`).join('') : '<div class="empty">直近7日の記録はありません</div>'}
     </div>`;
-  } else {
-    detail = '';
   }
-  const visible = MUSCLES.filter(m => !S.hide[m]);
+  const visible = MUSCLES.filter(m => !S.cfg.hide[m]);
   const withTarget = visible.filter(m => tg.has(m));
   const noTarget = visible.filter(m => !tg.has(m) && act[m] > 0);
-  const d0 = new Date(today); d0.setDate(d0.getDate() - 6);
-  const range = `${d0.getMonth() + 1}/${d0.getDate()}〜${today.getMonth() + 1}/${today.getDate()}`;
+  const range = `${L.fmtMD(L.addDays(today, -6))}〜${L.fmtMD(today)}`;
   return `
     <div class="seg">
       <button class="${S.body === 'front' ? 'on' : ''}" data-act="side" data-s="front">前面</button>
@@ -484,17 +275,16 @@ function viewBody() {
     <div class="card">
       <h2>部位ごとのセット数</h2>
       <div class="sub" style="margin:-6px 0 6px">直近7日 / 週の目標（目安）</div>
-      ${withTarget.map(m => mrow(m, act[m], S.target[m])).join('')}
+      ${withTarget.map(m => mrow(m, act[m], S.cfg.target[m])).join('') || (noTarget.length ? '' : '<div class="empty">メニューに種目を入れると、目標が出ます</div>')}
       ${noTarget.length ? `<div class="sub" style="margin-top:8px">目標なし（メニューに種目がない部位）</div>` + noTarget.map(m => `<div class="setrow"><b>${m}</b><b class="num">${fmtKg(act[m])} <span class="sub">セット</span></b></div>`).join('') : ''}
       <div class="note" style="margin-top:10px">主働筋は1セット、補助筋は0.5セットで計算。</div>
     </div>`;
 }
 function mrow(m, n, tgt) {
-  const lv = barLv(n, tgt);
   return `<div class="mrow">
     <div class="t"><b>${m}</b><span class="n">${fmtKg(n)} <i>/ ${tgt} セット</i></span></div>
-    <div class="bar"><div class="lv${lv}" style="width:${Math.min(100, (n / tgt) * 100)}%"></div></div>
-    <div class="lbl">${lvLabel(n, tgt)}</div>
+    <div class="bar"><div class="lv${L.level(n, tgt)}" style="width:${Math.min(100, (n / tgt) * 100)}%"></div></div>
+    <div class="lbl">${L.levelLabel(n, tgt)}</div>
   </div>`;
 }
 
@@ -502,11 +292,12 @@ function mrow(m, n, tgt) {
 function planNote() {
   const n = S.menus.filter(m => !m.paused).length;
   if (!n) return '休止していないメニューがありません';
-  const k = Math.round((S.freq / n) * 10) / 10;
-  return `各メニューを週${k}回ずつやる場合（週${S.freq}回 ÷ ${n}メニュー）`;
+  const k = Math.round((S.cfg.freq / n) * 10) / 10;
+  return `各メニューを週${k}回ずつやる場合（週${S.cfg.freq}回 ÷ ${n}メニュー）`;
 }
 function viewMenu() {
-  const pl = plan(), tg = targetMuscles();
+  const pl = L.weeklyPlan(S.menus, EX, S.cfg.freq), tg = L.targetMuscles(S.menus, EX);
+  const planRows = MUSCLES.filter(m => tg.has(m) && !S.cfg.hide[m]);
   return `
     <div class="dlist" data-list="menus">
     ${S.menus.map((m, mi) => `
@@ -524,7 +315,7 @@ function viewMenu() {
             <div class="exrow c ditem" data-id="${id}">
               <button class="main dgrip" data-act="editEx" data-id="${id}">
                 <span class="nm">${esc(e.name)}</span>
-                <span class="meta">${e.range[0] === e.range[1] ? e.range[0] : e.range.join('-')}×${e.sets}</span>
+                <span class="meta">${rangeText(e)}×${e.sets}</span>
               </button>
               <button class="mv dangertxt" data-act="menuDelEx" data-mi="${mi}" data-k="${k}" aria-label="メニューから外す">✕</button>
             </div>`; }).join('') || '<div class="empty" style="padding:10px 0">種目がありません</div>'}
@@ -536,50 +327,54 @@ function viewMenu() {
           </div>` : ''}
       </div>`).join('')}
     </div>
-    <div class="foot-hint" style="padding:0 8px 10px">名前を長押ししてドラッグすると並べ替え</div>
+    ${S.menus.length ? '<div class="foot-hint" style="padding:0 8px 10px">名前を長押ししてドラッグすると並べ替え。種目をタップで編集</div>' : ''}
     <button class="btn block ghost small" data-act="menuNew" style="margin-bottom:12px">＋ メニューを追加</button>
-    <div class="card c">
+    ${planRows.length ? `<div class="card c">
       <h2 style="font-size:17px;margin-bottom:2px">週のセット数（予定）</h2>
       <div class="sub" style="margin-bottom:6px;font-size:12px">${planNote()}</div>
-      ${MUSCLES.filter(m => tg.has(m) && !S.hide[m]).map(m => {
-        const n = pl[m], t = S.target[m];
-        return `<div class="prow"><span class="pn">${m}</span><span class="pbar"><i class="lv${barLv(n, t)}" style="width:${Math.min(100, n / t * 100)}%"></i></span><span class="pv num">${fmtKg(n)}<small>/${t}</small></span></div>`;
+      ${planRows.map(m => {
+        const n = pl[m], t = S.cfg.target[m];
+        return `<div class="prow"><span class="pn">${m}</span><span class="pbar"><i class="lv${L.level(n, t)}" style="width:${Math.min(100, n / t * 100)}%"></i></span><span class="pv num">${fmtKg(Math.round(n * 10) / 10)}<small>/${t}</small></span></div>`;
       }).join('')}
-    </div>`;
+    </div>` : ''}`;
 }
 
 /* --- 設定 --- */
 function viewSettings() {
+  const c = S.cfg;
+  const lb = c.lastBackup ? `前回の保存: ${dateJa(c.lastBackup)}` : 'まだ保存していません';
+  const prot = S.persisted == null ? '' : ` ・ 保存の保護: ${S.persisted ? '有効' : '未設定'}`;
   return `
     ${themeCard()}
     <div class="card">
       <h2>週の頻度</h2>
-      <div class="setrow"><div>トレーニングする回数</div>${stepper('freq', S.freq, '回')}</div>
+      <div class="setrow"><div>トレーニングする回数</div>${stepper('freq', c.freq, '回')}</div>
     </div>
     <div class="card">
       <h2>おすすめメニューの方式</h2>
       <div class="seg" style="margin:4px 0 8px">
-        <button class="${S.method === 1 ? 'on' : ''}" data-act="method" data-v="1">方式1</button>
-        <button class="${S.method === 2 ? 'on' : ''}" data-act="method" data-v="2">方式2</button>
+        <button class="${c.method === 1 ? 'on' : ''}" data-act="method" data-v="1">方式1</button>
+        <button class="${c.method === 2 ? 'on' : ''}" data-act="method" data-v="2">方式2</button>
       </div>
       <div class="note">方式1: 最終実施が一番古いメニュー<br>方式2: 最後に実施したメニューの次</div>
     </div>
     <div class="card">
       <h2>インターバルの基準値</h2>
-      ${['多', '単', 'カ腹'].map(c => `<div class="setrow"><div>${CAT_NAME[c]}</div>${stepper('rest:' + c, S.rest[c], '秒', 15)}</div>`).join('')}
+      ${CATS.map(k => `<div class="setrow"><div>${CAT_NAME[k]}</div>${stepper('rest:' + k, c.rest[k], '秒', 15)}</div>`).join('')}
     </div>
     <div class="card">
       <h2>部位の目標セット数（週）</h2>
-      ${MUSCLES.map(m => `<div class="setrow"><div class="grow">${m}</div>${stepper('tg:' + m, S.target[m], '', 1)}<button class="switch ${S.hide[m] ? '' : 'on'}" style="margin-left:10px" data-act="vis" data-m="${m}" aria-label="${m}を表示"></button></div>`).join('')}
+      ${MUSCLES.map(m => `<div class="setrow"><div class="grow">${m}</div>${stepper('tg:' + m, c.target[m], '', 1)}<button class="switch ${c.hide[m] ? '' : 'on'}" style="margin-left:10px" data-act="vis" data-m="${m}" aria-label="${m}を表示"></button></div>`).join('')}
       <div class="note">右のスイッチは部位の表示・非表示です。</div>
     </div>
     <div class="card">
       <h2>データ</h2>
       <div class="row" style="flex-wrap:wrap;gap:8px">
-        <button class="btn grow" data-act="dummy">バックアップを保存</button>
-        <button class="btn grow" data-act="dummy">復元</button>
-        <button class="btn grow" data-act="dummy">CSV書き出し</button>
+        <button class="btn" data-act="backup" style="flex-basis:100%">バックアップを保存</button>
+        <button class="btn grow" data-act="restore">復元</button>
+        <button class="btn grow" data-act="csv">CSV書き出し</button>
       </div>
+      <div class="note" style="margin-top:10px">${lb}。記録はこのiPhoneの中だけにあります。復元は、今のデータをファイルの内容に置き換えます。</div>
     </div>
     <div class="card">
       <h2>メモ</h2>
@@ -587,10 +382,10 @@ function viewSettings() {
       ・タイマー画面の誤操作を防ぐには、iPhoneのガイドアクセス（設定→アクセシビリティ）を使ってください。ホームバー付近のスワイプは、ウェブ側では止められません。</div>
     </div>
     <div class="card">
-      <h2>試作用</h2>
+      <h2>動作確認</h2>
       <button class="btn block" data-act="timer10">タイマー画面を試す（10秒）</button>
     </div>
-    <div class="foot-hint">版 ${BUILD}</div>`;
+    <div class="foot-hint">版 ${BUILD}${prot}${S.updated ? ' ・ 新しい版があります（開き直すと反映）' : ''}</div>`;
 }
 function stepper(k, v, unit, step = 1) {
   return `<div class="stepper"><button data-act="cfg" data-k="${k}" data-d="-${step}">−</button><span class="num" style="min-width:52px;text-align:center;font-weight:800;font-size:18px">${v}<small style="margin-left:2px">${unit}</small></span><button data-act="cfg" data-k="${k}" data-d="${step}">＋</button></div>`;
@@ -598,10 +393,27 @@ function stepper(k, v, unit, step = 1) {
 
 /* ========== シート ========== */
 function sheet(html) {
-  const r = $('#sheet-root');
-  r.innerHTML = `<div class="back" data-act="close"></div><div class="sheet">${html}</div>`;
+  $('#sheet-root').innerHTML = `<div class="back" data-act="close"></div><div class="sheet">${html}</div>`;
 }
 function closeSheet() { $('#sheet-root').innerHTML = ''; }
+function infoSheet(title, msg) {
+  sheet(`<h2>${esc(title)}</h2><div class="note" style="font-size:15px;color:var(--text)">${esc(msg)}</div><button class="btn block" data-act="close" style="margin-top:14px">閉じる</button>`);
+}
+// msg はHTML（呼び出し側で esc する）
+function confirmSheet(msg, okLabel, fn, danger = true) {
+  S.confirmFn = fn;
+  sheet(`<h2>確認</h2><div class="note" style="font-size:15px;color:var(--text);margin-bottom:14px">${msg}</div>
+    <button class="btn block ${danger ? 'danger' : 'primary'}" data-act="doConfirm" ${danger ? 'style="background:var(--card2)"' : ''}>${esc(okLabel)}</button>
+    <button class="btn block ghost" data-act="close" style="margin-top:8px">やめる</button>`);
+}
+function textSheet(title, value, mode, id) {
+  S.text = { mode, id };
+  sheet(`<h2>${esc(title)}</h2>
+    <div class="field"><label>メニュー名</label><input id="txt" value="${esc(value)}" maxlength="20"></div>
+    <button class="btn primary block" data-act="saveText">保存</button>
+    <button class="btn block ghost" data-act="close" style="margin-top:8px">キャンセル</button>`);
+  setTimeout(() => { const t = $('#txt'); if (t) { t.focus(); t.select(); } }, 50);
+}
 
 function rmSheet() {
   sheet(`<h2>RM計算</h2>
@@ -612,520 +424,389 @@ function rmSheet() {
     <div class="result"><div class="sub">推定1RM（O'Connor式）</div><div class="big num" id="rm-out">96</div><div class="sub" id="rm-note"></div></div>
     <button class="btn block" data-act="close" style="margin-top:12px">閉じる</button>`);
   const calc = () => {
-    const w = parseFloat($('#rm-w').value), r = parseInt($('#rm-r').value, 10);
+    const w = parseFloat($('#rm-w').value.replace(',', '.')), r = parseInt($('#rm-r').value, 10);
     if (!(w > 0) || !(r > 0)) { $('#rm-out').textContent = '—'; $('#rm-note').textContent = ''; return; }
-    $('#rm-out').innerHTML = `${fmtKg(e1rm(w, r))}<span class="sub"> kg</span>`;
+    $('#rm-out').innerHTML = `${L.fmt1(L.e1rm(w, r))}<span class="sub"> kg</span>`;
     $('#rm-note').textContent = r >= 11 ? '参考値（精度低）' : '';
   };
   $('#rm-w').addEventListener('input', calc); $('#rm-r').addEventListener('input', calc); calc();
 }
-function editExSheet(id) {
-  const e = EX[id], pct = e.inc && BASE_W[id] ? (e.inc / BASE_W[id]) * 100 : 0;
-  const warn = pct && (pct < 2 || pct > 10) ? `<div class="note" style="color:#9cc4ff">増量幅が2〜10%の目安から外れています（表示のみ）</div>` : '';
-  sheet(`<h2>${esc(e.name)}</h2>
-    <div class="field"><label>名前</label><input value="${esc(e.name)}"></div>
-    <div class="field two row" style="gap:10px">
-      <div class="grow"><label>区分</label><input value="${CAT_NAME[e.cat]}"></div>
-      <div class="grow"><label>セット数</label><input class="num" value="${e.sets}"></div>
-    </div>
-    <div class="field two row" style="gap:10px">
-      <div class="grow"><label>主働筋</label><input value="${e.main}"></div>
-      <div class="grow"><label>補助筋（任意）</label><input value="${e.aux || ''}"></div>
-    </div>
-    <div class="field two row" style="gap:10px">
-      <div class="grow"><label>目標レンジ</label><input class="num" value="${e.range.join('-')}"></div>
-      <div class="grow"><label>増量幅 kg${pct ? `（約${pct.toFixed(1)}%）` : ''}</label><input class="num" value="${e.inc}"></div>
-    </div>
-    ${warn}
-    <div class="field"><label>インターバル（空欄で区分の基準値 ${S.rest[e.cat]}秒）</label><input class="num" placeholder="${S.rest[e.cat]}"></div>
-    <div class="field"><label>固定メモ</label><input value="${esc(e.memo)}"></div>
-    <div class="field"><label>代替種目</label><input value="${esc(e.alts.join('、') || 'なし')}"></div>
-    <div class="note">試作のため、保存はしません。</div>
-    <button class="btn primary block" data-act="close" style="margin-top:12px">閉じる</button>`);
-}
+
+/* ----- 代替種目（日別） ----- */
 function altSheet(i) {
-  const e = S.day.ex[i], base = EX[e.id];
+  const e = S.day.ex[i], slot = EX[e.orig || e.id];
+  const used = id => S.day.ex.some((x, k) => k !== i && x.id === id);
+  const row = (id, label, v) => {
+    const now = id === e.id, dis = now || used(id);
+    return `<button class="pick" ${dis ? 'disabled style="opacity:.45"' : `data-act="altPick" data-i="${i}" data-v="${v}"`}>${label}<span class="sub">${now ? '選択中' : dis ? '今日すでにあります' : '選ぶ'}</span></button>`;
+  };
   sheet(`<h2>代替種目</h2>
     <div class="sub" style="margin-bottom:6px">記録は代替種目自身の履歴に残ります（重量は換算しません）</div>
-    ${e.alt ? `<button class="pick" data-act="altPick" data-i="${i}" data-v="">元の種目に戻す（${esc(base.name)}）</button>` : ''}
-    ${base.alts.map(a => `<button class="pick" data-act="altPick" data-i="${i}" data-v="${esc(a)}">${esc(a)}<span class="sub">選ぶ</span></button>`).join('')}`);
+    ${e.orig ? row(slot.id, `元の種目に戻す（${esc(slot.name)}）`, '') : ''}
+    ${slot.alts.filter(a => EX[a]).map(a => row(a, esc(EX[a].name), a)).join('')}
+    <button class="btn block ghost" data-act="close" style="margin-top:12px">やめる</button>`);
 }
+
+/* ----- コピー ----- */
 function copySheet(kind, i) {
+  const D = S.day;
   if (kind === 'ex') {
-    const e = S.day.ex[i], base = EX[e.id];
-    const recs = histFor(e.id, 6);
+    const e = D.ex[i];
+    const recs = S.copyRecs = L.historyOf(DAYS, e.id, D.date, 8);
     sheet(`<h2>過去の記録をコピー</h2>
-      <div class="sub" style="margin-bottom:2px">${esc(e.alt || base.name)}</div>
-      <div class="sub" style="margin-bottom:6px">コピー元の日を選ぶと、そのセットが今日の末尾に入ります（回数は元の値のまま）</div>
+      <div class="sub" style="margin-bottom:2px">${esc(EX[e.id].name)}</div>
+      ${recs.length ? `<div class="sub" style="margin-bottom:6px">コピー元の日を選ぶと、そのセットがこの日の末尾に入ります（回数は元の値のまま）</div>` : '<div class="empty">この日より前の記録はありません</div>'}
       ${recs.map((r, k) => `<button class="pick cp" data-act="copyPickEx" data-i="${i}" data-k="${k}">
-        <span class="cp-top"><b>${r.date.getMonth() + 1}月${r.date.getDate()}日（${WD[r.date.getDay()]}）</b><span class="sub">${r.sets.length}セット</span></span>
+        <span class="cp-top"><b>${dateJa(r.date)}</b><span class="sub">${r.sets.length}セット</span></span>
         <span class="cp-sets num">${r.sets.map(x => `<i>${fmtKg(x.w)}<small>kg</small> × ${x.r}</i>`).join('')}</span>
       </button>`).join('')}
       <button class="btn block ghost" data-act="close" style="margin-top:12px">やめる</button>`);
     return;
   }
-  const items = [-2, -5, -9, -12].map(o => { const d = new Date(today); d.setDate(d.getDate() + o); return d; });
-  sheet(`<h2>${kind === 'day' ? '過去の日をコピー（全種目）' : '過去の記録をコピー'}</h2>
-    <div class="sub" style="margin-bottom:6px">選んだ日の全種目を、今日の記録にコピーします（回数は元の値のまま）</div>
-    ${items.map(d => `<button class="pick" data-act="copyPick">${d.getMonth() + 1}月${d.getDate()}日（${WD[d.getDay()]}）<span class="sub">${kind === 'day' ? '4種目' : '3セット'}</span></button>`).join('')}`);
+  const dates = [...L.doneDates(DAYS)].filter(d => d < D.date).reverse().slice(0, 20);
+  sheet(`<h2>過去の日をコピー（全種目）</h2>
+    ${dates.length ? '<div class="sub" style="margin-bottom:6px">選んだ日の全種目を、この日の記録にコピーします（回数は元の値のまま）</div>' : '<div class="empty">この日より前の記録はありません</div>'}
+    ${dates.map(d => { const t = L.dayTotals(DAYS[d]); return `<button class="pick" data-act="copyPick" data-d="${d}"><span>${dateJa(d)} <span class="sub">${esc(L.menuLabel(DAYS[d], S.menus))}</span></span><span class="sub">${t.ex}種目 ${t.sets}セット</span></button>`; }).join('')}
+    <button class="btn block ghost" data-act="close" style="margin-top:12px">やめる</button>`);
 }
 
-/* ========== 休息タイマーの時間選択 ========== */
-const W_MIN = 15, W_MAX = 600, W_STEP = 15, W_H = 44;
-const PRESETS = [60, 90, 120, 150, 180];
-const mmss = n => `${Math.floor(n / 60)}:${pad(n % 60)}`;
-function timerSheet(def) {
-  const vals = [];
-  for (let v = W_MIN; v <= W_MAX; v += W_STEP) vals.push(v);
-  S.timerPick = def;
-  const presets = PRESETS.concat(PRESETS.includes(def) ? [] : [def]).sort((a, b) => a - b);
-  sheet(`<h2>インターバル</h2>
-    <div class="chips" id="presets" style="margin:0 0 6px">${presets.map(v => `<button class="chip" data-act="timerPreset" data-v="${v}">${mmss(v)}${v === def ? '<span class="sub" style="margin-left:4px;font-size:11px">基準</span>' : ''}</button>`).join('')}</div>
-    <div class="wheelwrap"><div class="wheel" id="wheel">${vals.map(v => `<div data-act="wheelItem" data-v="${v}">${mmss(v)}</div>`).join('')}</div></div>
-    <div class="note" style="text-align:center;margin:4px 0 10px">スクロールで時間を変えられます（15秒刻み）</div>
-    <button class="btn primary block" data-act="timerGo" style="min-height:56px;font-size:18px">スタート</button>
-    <button class="btn block ghost" data-act="close" style="margin-top:8px">やめる</button>`);
-  const w = $('#wheel');
-  w.scrollTop = ((def - W_MIN) / W_STEP) * W_H;
-  wheelSync();
-  w.addEventListener('scroll', wheelSync, { passive: true });
-  clearInterval(S.wheelIv);
-  S.wheelIv = setInterval(() => { if ($('#wheel')) wheelSync(); else clearInterval(S.wheelIv); }, 100);
-}
-function wheelSync() {
-  const w = $('#wheel');
-  if (!w) return;
-  const max = (W_MAX - W_MIN) / W_STEP;
-  const idx = Math.max(0, Math.min(max, Math.round(w.scrollTop / W_H)));
-  const v = W_MIN + idx * W_STEP;
-  S.timerPick = v;
-  [...w.children].forEach((c, k) => c.classList.toggle('sel', k === idx));
-  document.querySelectorAll('#presets .chip').forEach(c => c.classList.toggle('on', +c.dataset.v === v));
-}
-function wheelTo(v, smooth) {
-  const w = $('#wheel');
-  if (!w) return;
-  w.scrollTo({ top: ((v - W_MIN) / W_STEP) * W_H, behavior: smooth ? 'smooth' : 'auto' });
-  S.timerPick = v;
-  [...w.children].forEach(c => c.classList.toggle('sel', +c.dataset.v === v));
-  document.querySelectorAll('#presets .chip').forEach(c => c.classList.toggle('on', +c.dataset.v === v));
-}
-
-/* ========== 種目の追加・メニュー編集・確認 ========== */
+/* ========== 種目の追加（日別・メニュー・代替の3か所から開く） ========== */
 const toKana = t => t.replace(/[ぁ-ゖ]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60)).toLowerCase();
+// 保存済みの種目 + まだ使っていないプリセット（id は 'preset:番号'）
+function library() {
+  const list = Object.values(EX);
+  const have = new Set(list.map(e => e.name));
+  EX_PRESETS.forEach((p, i) => {
+    if (!have.has(p[0])) list.push({ id: 'preset:' + i, name: p[0], cat: p[1], main: p[2], aux: p[3] ? [p[3]] : [], range: [p[4], p[5]], sets: p[6], inc: p[7], rest: null, memo: '', alts: [], preset: true });
+  });
+  return list;
+}
+// プリセットを選んだら、種目として保存して、そのIDを返す
+function resolveEx(id) {
+  if (EX[id]) return id;
+  const p = library().find(e => e.id === id);
+  const e = { ...p, id: newId('x') };
+  delete e.preset;
+  EX[e.id] = e; saveEx(e);
+  return e.id;
+}
 function pickCtx() {
-  const mode = S.pick.mode, isDay = mode === 'day';
+  const mode = S.pick.mode; // 'day' / 'menu:<メニューID>' / 'alt'（種目編集の代替）
+  if (mode === 'alt') return { isDay: false, isAlt: true, menu: null, have: new Set([S.form.id, ...S.form.alts]) };
+  const isDay = mode === 'day';
   const menu = isDay ? S.menus.find(m => m.id === S.day.menuId) : S.menus.find(m => 'menu:' + m.id === mode);
-  const have = new Set(isDay ? S.day.ex.map(e => e.id) : (menu ? menu.ex : []));
-  return { isDay, menu, have };
+  return { isDay, isAlt: false, menu, have: new Set(isDay ? S.day.ex.map(e => e.id) : (menu ? menu.ex : [])) };
 }
 function pickListHtml() {
-  const { have } = pickCtx();
+  const { have, isAlt } = pickCtx();
   const q = (S.pick.q || '').trim(), nq = toKana(q);
   const open = S.pick.open || (S.pick.open = {});
-  let groups = MUSCLES.map(m => ({
-    m,
-    list: Object.values(EX).filter(e => e.main === m).sort((x, y) => (USE[y.id] || 0) - (USE[x.id] || 0)),
-  }));
+  const lib = library(), use = L.usage(DAYS), today = todayKey();
+  const inMenu = new Set(S.menus.flatMap(m => m.ex));
+  const rank = e => (use[e.id] || 0) * 4 + (inMenu.has(e.id) ? 2 : 0) + (e.preset ? 0 : 1);
+  const lastM = L.lastDoneByMuscle(DAYS, EX);
+  const ago = m => (lastM[m] ? (lastM[m] === today ? '今日' : L.diffDays(today, lastM[m]) + '日前') : '記録なし');
+  let groups = MUSCLES.map(m => ({ m, list: lib.filter(e => e.main === m).sort((a, b) => rank(b) - rank(a)) }));
   if (nq) groups = groups.map(g => ({ m: g.m, list: g.list.filter(e => toKana(e.name).includes(nq)) }));
   groups = groups.filter(g => g.list.length);
-  const exact = nq && Object.values(EX).some(e => toKana(e.name) === nq);
-  const addNew = q && !exact ? `<button class="pick pk newrow" data-act="newEx" data-name="${esc(q)}"><span>「${esc(q)}」を新しい種目として追加</span><span class="sub">作成</span></button>` : '';
+  const exact = nq && lib.some(e => toKana(e.name) === nq);
+  const addNew = q && !exact && !isAlt ? `<button class="pick pk newrow" data-act="newEx" data-name="${esc(q)}"><span>「${esc(q)}」を新しい種目として追加</span><span class="sub">作成</span></button>` : '';
   const none = nq && !groups.length ? '<div class="empty" style="padding:12px 0">一致する種目がありません</div>' : '';
   return addNew + none + groups.map(g => {
     const shown = open[g.m] || nq ? g.list : g.list.slice(0, 3);
     return `<div class="pg">
-        <div class="pgh"><b>${g.m}</b><span class="sub">${nq ? g.list.length + '件' : (DAYS_AGO[g.m] != null ? DAYS_AGO[g.m] + '日前' : '記録なし')}</span></div>
+        <div class="pgh"><b>${g.m}</b><span class="sub">${nq ? g.list.length + '件' : ago(g.m)}</span></div>
         ${shown.map(e => { const dis = have.has(e.id); return `<button class="pick pk" ${dis ? 'disabled style="opacity:.4"' : `data-act="pickEx" data-id="${e.id}"`}><span>${esc(e.name)}</span><span class="sub">${dis ? '追加済み' : '＋'}</span></button>`; }).join('')}
         ${nq ? '' : `<div class="pgf">
-          <button data-act="newEx" data-m="${g.m}" class="acc">種目を追加</button>
+          ${isAlt ? '<span></span>' : `<button data-act="newEx" data-m="${g.m}" class="acc">種目を追加</button>`}
           ${g.list.length > 3 ? `<button data-act="pickMore" data-m="${g.m}">${open[g.m] ? '閉じる ▴' : 'すべて表示 (' + g.list.length + ') ▾'}</button>` : '<span></span>'}
         </div>`}
       </div>`;
   }).join('');
 }
 function pickSheet(mode) {
-  // mode: 'day' または 'menu:<メニューID>'
   S.pick.mode = mode;
-  const keepScroll = $('#sheet-root .sheet') ? $('#sheet-root .sheet').scrollTop : 0;
-  const { isDay, menu } = pickCtx();
+  const keepScroll = $('#sheet-root .sheet') && $('#pklist') ? $('#sheet-root .sheet').scrollTop : 0;
+  const { isDay, isAlt, menu } = pickCtx();
   const also = isDay && menu ? `<button class="toggle ${S.pick.also ? 'on' : ''}" style="width:100%;margin-bottom:6px" data-act="pickAlso">${S.pick.also ? '✓ ' : ''}今後の「${esc(menu.name)}」メニューにも追加する</button>` : '';
-  sheet(`<h2 style="margin-bottom:4px">種目を追加</h2>
-    <div class="sub" style="margin-bottom:8px">${isDay ? '今日の記録に入れます' : `「${esc(menu.name)}」に入れます`}。よくやる種目が上に出ます</div>
-    <input id="pk-q" class="pkq" type="text" inputmode="text" autocomplete="off" autocapitalize="off" placeholder="種目名で探す。なければ、そのまま入力して追加" value="${esc(S.pick.q || '')}">
+  const to = isAlt ? `「${esc(S.form.name)}」の代替に入れます` : isDay ? 'この日の記録に入れます' : `「${esc(menu.name)}」に入れます`;
+  sheet(`<h2 style="margin-bottom:4px">${isAlt ? '代替種目を追加' : '種目を追加'}</h2>
+    <div class="sub" style="margin-bottom:8px">${to}。よくやる種目が上に出ます</div>
+    <input id="pk-q" class="pkq" type="text" inputmode="text" autocomplete="off" autocapitalize="off" placeholder="${isAlt ? '種目名で探す' : '種目名で探す。なければ、そのまま入力して追加'}" value="${esc(S.pick.q || '')}">
     ${also}
     <div id="pklist">${pickListHtml()}</div>
-    <button class="btn block" data-act="close" style="margin-top:14px">閉じる</button>`);
+    <button class="btn block" data-act="${isAlt ? 'formBack' : 'close'}" style="margin-top:14px">${isAlt ? '戻る' : '閉じる'}</button>`);
   $('#sheet-root .sheet').scrollTop = keepScroll;
 }
 
-/* ----- 新しい種目を作る ----- */
+/* ----- 種目の作成と編集（F.id があれば編集） ----- */
 const CAT_DEF = { 多: [8, 10], 単: [12, 15], カ腹: [12, 15] };
 function exFormOpen(name, main) {
   const cat = main === 'ふくらはぎ' || main === '腹筋' ? 'カ腹' : '単';
-  S.form = { name: name || '', main: main || '', cat, lo: CAT_DEF[cat][0], hi: CAT_DEF[cat][1], sets: 3, inc: 2.5, msg: '' };
+  S.form = { id: null, name: name || '', main: main || '', aux: [], cat, lo: CAT_DEF[cat][0], hi: CAT_DEF[cat][1], sets: 3, inc: 2.5, rest: null, memo: '', alts: [], msg: '' };
+  exFormSheet();
+}
+function exEditOpen(id) {
+  const e = EX[id];
+  S.form = { id, name: e.name, main: e.main, aux: e.aux.slice(), cat: e.cat, lo: e.range[0], hi: e.range[1], sets: e.sets, inc: e.inc, rest: e.rest, memo: e.memo, alts: e.alts.filter(a => EX[a]), msg: '' };
   exFormSheet();
 }
 function readForm() {
   const F = S.form, v = id => { const e = document.getElementById(id); return e ? e.value : null; };
-  if (v('exf-name') !== null) F.name = v('exf-name');
   const n = (id, cur, float) => { const x = parseFloat((v(id) || '').replace(',', '.')); return x >= 0 ? (float ? x : Math.round(x)) : cur; };
+  if (v('exf-name') !== null) F.name = v('exf-name');
   if (v('exf-lo') !== null) { F.lo = n('exf-lo', F.lo); F.hi = n('exf-hi', F.hi); F.sets = n('exf-sets', F.sets); F.inc = n('exf-inc', F.inc, true); }
+  if (v('exf-main') !== null) F.main = v('exf-main');
+  if (v('exf-cat') !== null) F.cat = v('exf-cat');
+  if (v('exf-rest') !== null) F.rest = v('exf-rest') ? +v('exf-rest') : null;
+  if (v('exf-memo') !== null) F.memo = v('exf-memo');
+  F.aux = F.aux.filter(a => a !== F.main);
 }
 function exFormSheet() {
-  const F = S.form;
-  sheet(`<h2>種目を作成</h2>
-    <div class="field"><label>名前</label><input id="exf-name" value="${esc(F.name)}" maxlength="30" placeholder="例: ケーブルプルオーバー" autocomplete="off"></div>
+  const F = S.form, edit = !!F.id;
+  const sh = $('#sheet-root .sheet'), keep = sh && $('#exf-name') ? sh.scrollTop : 0;
+  const opt = (v, label, cur) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${label}</option>`;
+  let extra = '';
+  if (edit) {
+    const last = L.historyOf(DAYS, F.id, null, 1)[0];
+    const pct = last ? L.incPercent(F.inc, last.sets[0].w) : null;
+    const rests = []; for (let s = W_MIN; s <= W_MAX; s += W_STEP) rests.push(s);
+    extra = `
+    ${pct ? `<div class="note" style="margin:-4px 0 10px">増量幅は、直近の重量（${fmtKg(last.sets[0].w)}kg）の約${pct.toFixed(1)}%です。${L.incOutOfRange(pct) ? '<b>2〜10%の目安から外れています。</b>' : ''}</div>` : ''}
+    <div class="field"><label>補助筋（1セットを0.5セットとして数える。任意）</label>
+      <div class="chips sm">${MUSCLES.filter(m => m !== F.main).map(m => `<button class="chip ${F.aux.includes(m) ? 'on' : ''}" data-act="fAux" data-m="${m}">${m}</button>`).join('')}</div></div>
+    <div class="field"><label>インターバル</label>
+      <select id="exf-rest">${opt('', `区分の基準値（${mmss(S.cfg.rest[F.cat])}）`, F.rest ? String(F.rest) : '')}${rests.map(s => opt(String(s), mmss(s), F.rest ? String(F.rest) : '')).join('')}</select></div>
+    <div class="field"><label>固定メモ（シート位置など）</label><input id="exf-memo" value="${esc(F.memo)}" maxlength="80" autocomplete="off"></div>
+    <div class="field"><label>代替種目（上から優先）</label>
+      ${F.alts.map((a, k) => `<div class="altrow"><span>${esc(EX[a].name)}</span><button class="mv dangertxt" data-act="fAltDel" data-k="${k}" aria-label="代替から外す">✕</button></div>`).join('')}
+      <button class="btn small ghost block" data-act="fAltAdd" style="margin-top:6px">＋ 代替種目を追加</button></div>`;
+  }
+  sheet(`<h2>${edit ? '種目の設定' : '種目を作成'}</h2>
+    <div class="field"><label>名前${edit ? '（変えても履歴はつながります）' : ''}</label><input id="exf-name" value="${esc(F.name)}" maxlength="30" placeholder="例: ケーブルプルオーバー" autocomplete="off"></div>
+    ${edit ? `<div class="field two row" style="gap:10px">
+      <div class="grow"><label>部位（主働筋）</label><select id="exf-main">${MUSCLES.map(m => opt(m, m, F.main)).join('')}</select></div>
+      <div class="grow"><label>区分</label><select id="exf-cat">${CATS.map(k => opt(k, CAT_NAME[k], F.cat)).join('')}</select></div>
+    </div>` : `
     <div class="field"><label>部位（主働筋）</label>
       <div class="chips" style="margin:0;gap:6px">${MUSCLES.map(m => `<button class="chip ${F.main === m ? 'on' : ''}" data-act="fMain" data-m="${m}">${m}</button>`).join('')}</div></div>
     <div class="field"><label>区分</label>
-      <div class="seg" style="margin:0">${['多', '単', 'カ腹'].map(c => `<button class="${F.cat === c ? 'on' : ''}" data-act="fCat" data-c="${c}">${CAT_NAME[c]}</button>`).join('')}</div></div>
+      <div class="seg" style="margin:0">${CATS.map(k => `<button class="${F.cat === k ? 'on' : ''}" data-act="fCat" data-c="${k}">${CAT_NAME[k]}</button>`).join('')}</div></div>`}
     <div class="fgrid">
       <div class="field"><label>レンジ下限</label><input id="exf-lo" class="num" inputmode="numeric" value="${F.lo}"></div>
       <div class="field"><label>上限</label><input id="exf-hi" class="num" inputmode="numeric" value="${F.hi}"></div>
       <div class="field"><label>セット数</label><input id="exf-sets" class="num" inputmode="numeric" value="${F.sets}"></div>
       <div class="field"><label>増量幅kg</label><input id="exf-inc" class="num" inputmode="decimal" value="${F.inc}"></div>
     </div>
+    ${extra}
     <div class="note" id="exf-msg" style="color:var(--danger);min-height:18px">${esc(F.msg)}</div>
-    <button class="btn primary block" data-act="fCreate" style="min-height:52px">作成して追加</button>
-    <button class="btn block ghost" data-act="pickBack" style="margin-top:8px">戻る</button>`);
+    <button class="btn primary block" data-act="fCreate" style="min-height:52px">${edit ? '保存' : '作成して追加'}</button>
+    <button class="btn block ghost" data-act="${edit ? 'close' : 'pickBack'}" style="margin-top:8px">${edit ? 'やめる' : '戻る'}</button>`);
+  $('#sheet-root .sheet').scrollTop = keep;
 }
-function exFormCreate() {
+function exFormSave() {
   readForm();
   const F = S.form, name = F.name.trim();
-  if (!name) { F.msg = '名前を入力してください'; exFormSheet(); return; }
-  if (!F.main) { F.msg = '部位を選んでください'; exFormSheet(); return; }
-  if (!(F.lo >= 1 && F.hi >= F.lo)) { F.msg = 'レンジは、下限 ≦ 上限 で入れてください'; exFormSheet(); return; }
-  let e = Object.values(EX).find(x => toKana(x.name) === toKana(name));
-  if (!e) {
-    const id = 'u_' + Date.now();
-    e = EX[id] = { id, name, cat: F.cat, main: F.main, aux: null, range: [F.lo, F.hi], sets: Math.max(1, F.sets), inc: F.inc, alts: [], memo: '' };
-    USE[id] = 1;
+  const bad = msg => { F.msg = msg; exFormSheet(); };
+  if (!name) return bad('名前を入力してください');
+  if (!F.main) return bad('部位を選んでください');
+  if (!(F.lo >= 1 && F.hi >= F.lo)) return bad('レンジは、下限 ≦ 上限 で入れてください');
+  const same = Object.values(EX).find(x => toKana(x.name) === toKana(name));
+  const fields = { name, cat: F.cat, main: F.main, aux: F.aux, range: [F.lo, F.hi], sets: Math.max(1, F.sets), inc: F.inc, rest: F.rest, memo: F.memo.trim(), alts: F.alts };
+  if (F.id) {
+    if (same && same.id !== F.id) return bad('同じ名前の種目がすでにあります');
+    Object.assign(EX[F.id], fields);
+    saveEx(EX[F.id]);
+    closeSheet(); rerender();
+    return;
   }
+  let e = same;
+  if (!e) { const id = newId('x'); e = EX[id] = { id, ...fields }; saveEx(e); }
+  addPicked(e.id);
+  closeSheet(); rerender();
+}
+// 選んだ種目を、開いている追加先（日 / メニュー）に入れる
+function addPicked(id) {
   const { isDay, menu, have } = pickCtx();
-  if (!have.has(e.id)) {
-    if (isDay) {
-      const ne = { uid: UID++, id: e.id, alt: null, sets: [] };
-      S.day.ex.push(ne); S.dayOpen = ne.uid;
-      if (S.pick.also && menu && !menu.ex.includes(e.id)) menu.ex.push(e.id);
-    } else if (menu) menu.ex.push(e.id);
-  }
-  closeSheet();
-  S.keepScroll = true; render(); S.keepScroll = false;
+  if (have.has(id)) return;
+  if (isDay) {
+    const ne = { uid: UID++, id, orig: null, sets: [] };
+    S.day.ex.push(ne); S.dayOpen = ne.uid;
+    saveDay();
+    if (S.pick.also && menu && !menu.ex.includes(id)) { menu.ex.push(id); saveMenus(); }
+  } else if (menu) { menu.ex.push(id); saveMenus(); }
 }
-function textSheet(title, value, mode, id) {
-  S.text = { mode, id };
-  sheet(`<h2>${esc(title)}</h2>
-    <div class="field"><label>メニュー名</label><input id="txt" value="${esc(value)}" maxlength="20"></div>
-    <button class="btn primary block" data-act="saveText">保存</button>
-    <button class="btn block ghost" data-act="close" style="margin-top:8px">キャンセル</button>`);
-  setTimeout(() => { const t = $('#txt'); if (t) { t.focus(); t.select(); } }, 50);
-}
-function confirmSheet(msg, okLabel, fn) {
-  S.confirmFn = fn;
-  sheet(`<h2>確認</h2><div class="note" style="font-size:15px;color:var(--text);margin-bottom:14px">${msg}</div>
-    <button class="btn block danger" data-act="doConfirm" style="background:var(--card2)">${esc(okLabel)}</button>
-    <button class="btn block ghost" data-act="close" style="margin-top:8px">やめる</button>`);
-}
+
+/* ========== 並べ替え（drag.js から呼ばれる） ========== */
 function reorderTarget(name) {
   if (name === 'day') return S.day.ex;
   if (name === 'menus') return S.menus;
   if (name.startsWith('menu:')) return S.menus.find(m => m.id === name.slice(5)).ex;
   return null;
 }
+function reorderSave(name) { if (name === 'day') saveDay(); else saveMenus(); }
 
-/* ========== 長押しドラッグで並べ替え ========== */
-const DR = { timer: 0, on: false, item: null, list: null, items: [], rects: [], from: 0, to: 0, y0: 0, s0: 0, y: 0, gap: 0, auto: 0, moved: false, pending: null };
-function dragBegin(target, y) {
-  const grip = target.closest('.dgrip');
-  if (!grip) return false;
-  const item = grip.closest('.ditem');
-  if (!item) return false;
-  DR.pending = { item, y };
-  DR.moved = false;
-  clearTimeout(DR.timer);
-  DR.timer = setTimeout(() => dragActivate(item, y), 420);
+/* ========== バックアップ・復元・CSV ========== */
+const currentState = () => ({ exercises: EX, menus: S.menus, days: DAYS, settings: S.cfg });
+// 共有メニュー（ファイル付き）で渡す。使えなければダウンロード。キャンセルなら false
+async function shareFile(name, text, type) {
+  const file = new File([text], name, { type });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file] }); return true; }
+    catch (e) { if (e && e.name === 'AbortError') return false; }
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(file); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
   return true;
 }
-function dragActivate(item, y) {
-  const list = item.parentElement;
-  DR.items = [...list.children].filter(c => c.classList.contains('ditem'));
-  if (DR.items.length < 2) { DR.pending = null; return; }
-  const v = $('#view');
-  DR.on = true; DR.item = item; DR.list = list; DR.pending = null;
-  DR.from = DR.to = DR.items.indexOf(item);
-  DR.y0 = y; DR.y = y; DR.s0 = v.scrollTop;
-  DR.rects = DR.items.map(el => { const r = el.getBoundingClientRect(); return { top: r.top + v.scrollTop, h: r.height }; });
-  DR.gap = DR.items.length > 1 ? DR.rects[1].top - (DR.rects[0].top + DR.rects[0].h) : 0;
-  item.classList.add('dragging');
-  DR.items.forEach(el => { if (el !== item) el.style.transition = 'transform .15s'; });
-  if (navigator.vibrate) try { navigator.vibrate(15); } catch (_) {}
-  DR.auto = setInterval(() => {
-    const vr = v.getBoundingClientRect();
-    const edge = 90;
-    if (DR.y < vr.top + edge) v.scrollTop -= 12;
-    else if (DR.y > vr.bottom - edge) v.scrollTop += 12;
-    dragUpdate();
-  }, 16);
-  dragUpdate();
+const stamp = () => todayKey().replace(/-/g, '');
+async function doBackup() {
+  const text = JSON.stringify(L.makeBackup(currentState(), new Date().toISOString()), null, 1);
+  if (!(await shareFile(`kintore-${stamp()}.backup.json`, text, 'application/json'))) return;
+  S.cfg.lastBackup = todayKey(); saveCfg();
+  rerender();
 }
-function dragUpdate() {
-  const v = $('#view');
-  const dy = DR.y - DR.y0 + (v.scrollTop - DR.s0);
-  DR.item.style.transform = `translateY(${dy}px)`;
-  const me = DR.rects[DR.from];
-  const center = me.top + me.h / 2 + dy;
-  let to = 0;
-  DR.rects.forEach((r, k) => { if (k !== DR.from && r.top + r.h / 2 < center) to++; });
-  DR.to = to;
-  const shift = me.h + DR.gap;
-  DR.items.forEach((el, k) => {
-    if (k === DR.from) return;
-    let t = 0;
-    if (DR.from < k && k <= to) t = -shift;
-    else if (to <= k && k < DR.from) t = shift;
-    el.style.transform = t ? `translateY(${t}px)` : '';
-  });
+function doCsv() { shareFile(`kintore-${stamp()}.csv`, L.toCsv(currentState()), 'text/csv'); }
+async function onRestoreFile(file) {
+  let st;
+  try { st = L.parseBackup(await file.text()); }
+  catch (e) { infoSheet('読み込めません', e.message); return; }
+  const has = S.menus.length || Object.keys(DAYS).length;
+  const msg = `メニュー ${st.menus.length}、種目 ${Object.keys(st.exercises).length}、記録 ${Object.keys(st.days).length}日分 を読み込みます。`
+    + (has ? '<br><b>今のメニューと記録は、すべてこの内容に置き換わります。</b>' : '');
+  confirmSheet(msg, has ? '置き換えて読み込む' : '読み込む', () => applyState(st), !!has);
 }
-function dragMove(y, ev) {
-  if (DR.on) { DR.y = y; if (ev && ev.cancelable) ev.preventDefault(); dragUpdate(); return; }
-  if (DR.pending && Math.abs(y - DR.pending.y) > 8) { clearTimeout(DR.timer); DR.pending = null; }
+async function applyState(st) {
+  try { await Store.replaceAll(st); } catch (e) { closeSheet(); saveFail(e); return; }
+  EX = st.exercises; DAYS = st.days; S.menus = st.menus; S.cfg = st.settings;
+  S.day = null; S.menuPick = null; S.openMenu = null; S.muscle = null;
+  closeSheet(); render();
+  toast('読み込みました');
 }
-function dragEnd() {
-  clearTimeout(DR.timer); DR.pending = null;
-  if (!DR.on) return;
-  clearInterval(DR.auto);
-  DR.on = false;
-  const arr = reorderTarget(DR.list.dataset.list);
-  const from = DR.from, to = DR.to;
-  DR.items.forEach(el => { el.style.transform = ''; el.style.transition = ''; el.classList.remove('dragging'); });
-  DR.moved = true;
-  setTimeout(() => { DR.moved = false; }, 350);
-  if (arr && from !== to) arr.splice(to, 0, arr.splice(from, 1)[0]);
-  S.keepScroll = true; render(); S.keepScroll = false;
-}
-document.addEventListener('touchstart', e => { if (e.touches.length === 1) dragBegin(e.target, e.touches[0].clientY); }, { passive: true });
-document.addEventListener('touchmove', e => { dragMove(e.touches[0].clientY, e); }, { passive: false });
-document.addEventListener('touchend', dragEnd);
-document.addEventListener('touchcancel', dragEnd);
-document.addEventListener('mousedown', e => { if (e.button === 0) dragBegin(e.target, e.clientY); });
-document.addEventListener('mousemove', e => { if (DR.pending || DR.on) dragMove(e.clientY, e); });
-document.addEventListener('mouseup', dragEnd);
-// ドラッグ直後のクリックは無効にする（種目編集などが開かないように）
-document.addEventListener('click', e => { if (DR.moved || DR.on) { e.stopPropagation(); e.preventDefault(); } }, true);
-document.addEventListener('contextmenu', e => { if (e.target.closest('.dgrip')) e.preventDefault(); });
-
-/* ========== タイマー ========== */
-const T = { end: 0, total: 0, iv: 0, done: false, wl: null, press: 0, ctx: null, beeped: false };
-const RING_LEN = 2 * Math.PI * 130;
-
-function startTimer(sec) {
-  try {
-    T.ctx = T.ctx || new (window.AudioContext || window.webkitAudioContext)();
-    if (T.ctx.state === 'suspended') T.ctx.resume();
-  } catch (_) { /* 音が出なくても続ける */ }
-  T.total = sec * 1000;
-  T.end = Date.now() + T.total;
-  try { localStorage.setItem('timerEnd', JSON.stringify({ end: T.end, total: T.total })); } catch (_) {}
-  openTimer();
-}
-function openTimer() {
-  T.done = false; T.beeped = false;
-  const t = $('#timer');
-  t.hidden = false; t.classList.remove('done', 'pressing');
-  document.body.style.overflow = 'hidden';
-  $('#ring-fg').style.strokeDasharray = RING_LEN;
-  $('#ring-press').style.strokeDasharray = 2 * Math.PI * 112;
-  $('#ring-press').style.strokeDashoffset = 2 * Math.PI * 112;
-  tick();
-  clearInterval(T.iv);
-  T.iv = setInterval(tick, 200);
-  getWakeLock();
-}
-function tick() {
-  const left = Math.max(0, T.end - Date.now());
-  const s = Math.ceil(left / 1000);
-  $('#timer-num').textContent = `${Math.floor(s / 60)}:${pad(s % 60)}`;
-  $('#ring-fg').style.strokeDashoffset = RING_LEN * (1 - left / T.total);
-  if (left <= 0 && !T.done) {
-    T.done = true;
-    $('#timer').classList.add('done');
-    $('#ring-fg').style.strokeDashoffset = 0;
-    if (!T.beeped) { T.beeped = true; beep(); }
-  }
-}
-function beep() {
-  if (!T.ctx) return;
-  try {
-    [0, 0.35, 0.7].forEach(off => {
-      const o = T.ctx.createOscillator(), g = T.ctx.createGain();
-      o.frequency.value = 880; o.type = 'sine';
-      g.gain.setValueAtTime(0.0001, T.ctx.currentTime + off);
-      g.gain.exponentialRampToValueAtTime(0.5, T.ctx.currentTime + off + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, T.ctx.currentTime + off + 0.25);
-      o.connect(g); g.connect(T.ctx.destination);
-      o.start(T.ctx.currentTime + off); o.stop(T.ctx.currentTime + off + 0.3);
-    });
-  } catch (_) {}
-}
-async function getWakeLock() {
-  try { if ('wakeLock' in navigator) T.wl = await navigator.wakeLock.request('screen'); } catch (_) { /* 静かに続ける */ }
-}
-function closeTimer() {
-  clearInterval(T.iv);
-  $('#timer').hidden = true;
-  document.body.style.overflow = '';
-  try { localStorage.removeItem('timerEnd'); } catch (_) {}
-  try { if (T.wl) { T.wl.release(); T.wl = null; } } catch (_) {}
-}
-(function bindTimer() {
-  const t = $('#timer'), pr = $('#ring-press'), L = 2 * Math.PI * 112;
-  const stop = e => { e.preventDefault(); };
-  ['touchmove', 'gesturestart', 'gesturechange', 'dblclick', 'contextmenu', 'click', 'wheel'].forEach(ev =>
-    t.addEventListener(ev, stop, { passive: false }));
-  t.addEventListener('touchstart', stop, { passive: false });
-  const down = e => {
-    e.preventDefault();
-    clearTimeout(T.press);
-    t.classList.add('pressing');
-    pr.style.transition = 'stroke-dashoffset 1.5s linear';
-    pr.style.strokeDashoffset = 0;
-    T.press = setTimeout(closeTimer, 1500);
-  };
-  const up = () => {
-    clearTimeout(T.press);
-    t.classList.remove('pressing');
-    pr.style.transition = 'none';
-    pr.style.strokeDashoffset = L;
-  };
-  t.addEventListener('pointerdown', down);
-  ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => t.addEventListener(ev, up));
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && !t.hidden) { tick(); getWakeLock(); }
-  });
-})();
 
 /* ========== イベント ========== */
-function addSetTo(i, timer = true) {
-  const e = S.day.ex[i], base = EX[e.id];
-  const last = e.sets[e.sets.length - 1];
-  const h = histFor(e.id)[0];
-  const s = last ? { w: last.w, r: last.r, l: false } : { w: h.w, r: h.reps[0], l: false };
-  e.sets.push(s);
-  S.keepScroll = true; render(); S.keepScroll = false;
-  if (timer) startTimer(S.rest[base.cat]);
-}
-
 document.addEventListener('click', ev => {
   const el = ev.target.closest('[data-act]');
-  if (!el || el.tagName === 'INPUT') return;
+  if (!el || el.tagName === 'INPUT' || el.tagName === 'SELECT') return;
   const a = el.dataset.act, i = +el.dataset.i, j = +el.dataset.j;
+  const D = S.day;
   S.keepScroll = true;
   switch (a) {
-    case 'tab': S.tab = el.dataset.t; S.day = null; S.keepScroll = false; render(); $('#view').scrollTop = 0; return;
+    case 'tab': S.tab = el.dataset.t; S.day = null; S.keepScroll = false; render(); $('#view').scrollTop = 0; maybeReload(); return;
     case 'cal': S.cal.m += +el.dataset.d; if (S.cal.m < 0) { S.cal.m = 11; S.cal.y--; } if (S.cal.m > 11) { S.cal.m = 0; S.cal.y++; } break;
     case 'pick': S.menuPick = el.dataset.id; break;
-    case 'todayFree': S.day = newDay(todayKey, null); S.dayOpen = null; S.keepScroll = false; render(); $('#view').scrollTop = 0; return;
-    case 'today': S.day = newDay(todayKey, recommended()); openFirstUnfinished(); S.keepScroll = false; render(); $('#view').scrollTop = 0; return;
-    case 'day': S.day = newDay(el.dataset.d, DONE_DAYS.has(el.dataset.d) || el.dataset.d === todayKey ? recommended() : null); openFirstUnfinished(); S.keepScroll = false; render(); $('#view').scrollTop = 0; return;
-    case 'back': S.day = null; break;
+    case 'today': openDay(todayKey(), pickedMenu()); return;
+    case 'todayFree': case 'todayOpen': openDay(todayKey(), null); return;
+    case 'day': openDay(el.dataset.d, el.dataset.d === todayKey() ? pickedMenu() : null); return;
+    case 'dayMenu': {
+      const m = S.menus.find(x => x.id === el.dataset.id);
+      D.menuId = m.id; D.ex = menuEntries(m); openFirstUnfinished(); saveDay(); break;
+    }
+    case 'back': S.day = null; render(); S.keepScroll = false; maybeReload(); return;
     case 'rm': rmSheet(); return;
     case 'close': closeSheet(); return;
-    case 'addset': closeSheet(); addSetTo(i, false); S.keepScroll = false; return;
-    case 'timer': timerSheet(S.rest[EX[S.day.ex[i].id].cat]); return;
+    case 'addset': {
+      const e = D.ex[i];
+      e.sets.push(L.nextSet(e.sets, L.historyOf(DAYS, e.id, D.date, 1)[0], EX[e.id]));
+      saveDay(); break;
+    }
+    case 'timer': timerSheet(L.restFor(EX[D.ex[i].id], S.cfg)); return;
     case 'timerGo': { wheelSync(); const v = S.timerPick; clearInterval(S.wheelIv); closeSheet(); startTimer(v); return; }
-    case 'timerPreset': wheelTo(+el.dataset.v, true); return;
-    case 'wheelItem': wheelTo(+el.dataset.v, true); return;
-    case 'exToggle': { const u = S.day.ex[i].uid; S.dayOpen = S.dayOpen === u ? null : u; break; }
+    case 'timerPreset': case 'wheelItem': wheelTo(+el.dataset.v, true); return;
+    case 'exToggle': { const u = D.ex[i].uid; S.dayOpen = S.dayOpen === u ? null : u; break; }
     case 'step': {
-      const s = S.day.ex[i].sets[j], f = el.dataset.f, d = parseFloat(el.dataset.d);
+      const s = D.ex[i].sets[j], f = el.dataset.f, d = parseFloat(el.dataset.d);
       s[f] = Math.max(0, Math.round((s[f] + d) * 100) / 100);
-      break;
+      saveDay(); break;
     }
-    case 'limit': { const s = S.day.ex[i].sets[j]; s.l = !s.l; break; }
-    case 'delset': S.day.ex[i].sets.splice(j, 1); break;
-    case 'mv': {
-      const k = i + +el.dataset.d, arr = S.day.ex;
-      if (k >= 0 && k < arr.length) [arr[i], arr[k]] = [arr[k], arr[i]];
-      break;
-    }
+    case 'limit': { const s = D.ex[i].sets[j]; s.l = !s.l; saveDay(); break; }
+    case 'delset': D.ex[i].sets.splice(j, 1); saveDay(); break;
     case 'alt': altSheet(i); return;
-    case 'altPick': S.day.ex[i].alt = el.dataset.v || null; closeSheet(); break;
+    case 'altPick': {
+      const e = D.ex[i], v = el.dataset.v;
+      if (v) { e.orig = e.orig || e.id; e.id = v; } else { e.id = e.orig; e.orig = null; }
+      saveDay(); closeSheet(); break;
+    }
     case 'copyDay': copySheet('day'); return;
     case 'copyEx': copySheet('ex', i); return;
-    case 'copyPickEx': {
-      const e = S.day.ex[i], r = histFor(e.id, 6)[+el.dataset.k];
-      r.sets.forEach(x => e.sets.push({ w: x.w, r: x.r, l: false }));
-      closeSheet(); break;
-    }
-    case 'copyPick': closeSheet(); sheet(`<h2>コピーしました</h2><div class="note">試作のため、実際のコピーは行いません。</div><button class="btn block" data-act="close" style="margin-top:12px">閉じる</button>`); return;
-    case 'side': S.body = el.dataset.s; break;
-    case 'openMenu': S.openMenu = S.openMenu === el.dataset.id ? null : el.dataset.id; break;
-    case 'pause': { const m = S.menus.find(x => x.id === el.dataset.id); m.paused = !m.paused; break; }
-    case 'mmv': {
-      const m = S.menus[+el.dataset.mi], k = +el.dataset.k, t = k + +el.dataset.d;
-      if (t >= 0 && t < m.ex.length) [m.ex[k], m.ex[t]] = [m.ex[t], m.ex[k]];
-      break;
-    }
-    case 'editEx': editExSheet(el.dataset.id); return;
-    case 'dayAdd': S.pick = { also: false, mode: 'day' }; pickSheet('day'); return;
-    case 'newEx': S.pick.q = ''; exFormOpen(el.dataset.name || '', el.dataset.m || ''); return;
-    case 'fMain': readForm(); S.form.main = el.dataset.m; S.form.msg = ''; exFormSheet(); return;
-    case 'fCat': { readForm(); const c = el.dataset.c; S.form.cat = c; S.form.lo = CAT_DEF[c][0]; S.form.hi = CAT_DEF[c][1]; exFormSheet(); return; }
-    case 'fCreate': exFormCreate(); return;
-    case 'pickBack': readForm(); pickSheet(S.pick.mode); return;
-    case 'pickMore': S.pick.open = S.pick.open || {}; S.pick.open[el.dataset.m] = !S.pick.open[el.dataset.m]; pickSheet(S.pick.mode); return;
-    case 'pickAlso': S.pick.also = !S.pick.also; pickSheet(S.pick.mode); return;
-    case 'pickEx': {
-      const id = el.dataset.id, mode = S.pick.mode;
-      if (mode === 'day') {
-        const ne = { uid: UID++, id, alt: null, sets: [] }; S.day.ex.push(ne); S.dayOpen = ne.uid;
-        const menu = S.menus.find(m => m.id === S.day.menuId);
-        if (S.pick.also && menu && !menu.ex.includes(id)) menu.ex.push(id);
-      } else {
-        S.menus.find(m => 'menu:' + m.id === mode).ex.push(id);
-      }
-      render(); pickSheet(mode); return;
+    case 'copyPickEx': S.day = L.copyExercise(D, i, S.copyRecs[+el.dataset.k].sets); saveDay(); closeSheet(); break;
+    case 'copyPick': {
+      const out = L.copyDay(D, DAYS[el.dataset.d]);
+      out.ex.forEach(e => { if (!e.uid) e.uid = UID++; });
+      S.day = out;
+      if (!S.day.ex.some(e => e.uid === S.dayOpen)) openFirstUnfinished();
+      saveDay(); closeSheet(); toast('コピーしました'); break;
     }
     case 'dayDel': {
-      const e = S.day.ex[i];
-      const go = () => { S.day.ex.splice(i, 1); closeSheet(); S.keepScroll = true; render(); S.keepScroll = false; };
-      if (e.sets.length) confirmSheet('「' + esc(e.alt || EX[e.id].name) + '」の' + e.sets.length + 'セットの記録も、今日の記録から消えます。', '外す', go);
+      const e = D.ex[i];
+      const go = () => { D.ex.splice(i, 1); saveDay(); closeSheet(); rerender(); };
+      if (e.sets.length) confirmSheet('「' + esc(EX[e.id].name) + '」の' + e.sets.length + 'セットの記録も、この日の記録から消えます。', '外す', go);
       else go();
       return;
     }
     case 'doConfirm': { const f = S.confirmFn; S.confirmFn = null; if (f) f(); return; }
-    case 'menuAddEx': S.pick = { also: false, mode: 'menu:' + el.dataset.id }; pickSheet(S.pick.mode); return;
-    case 'menuDelEx': S.menus[+el.dataset.mi].ex.splice(+el.dataset.k, 1); break;
+
+    case 'side': S.body = el.dataset.s; break;
+
+    case 'openMenu': S.openMenu = S.openMenu === el.dataset.id ? null : el.dataset.id; break;
+    case 'pause': { const m = S.menus.find(x => x.id === el.dataset.id); m.paused = !m.paused; saveMenus(); break; }
+    case 'menuDelEx': S.menus[+el.dataset.mi].ex.splice(+el.dataset.k, 1); saveMenus(); break;
     case 'menuNew': textSheet('メニューを追加', '', 'new'); return;
     case 'menuRename': textSheet('名前を変更', S.menus.find(x => x.id === el.dataset.id).name, 'rename', el.dataset.id); return;
     case 'saveText': {
       const v = $('#txt').value.trim();
       if (!v) return;
-      if (S.text.mode === 'new') { const id = 'm' + Date.now(); S.menus.push({ id, name: v, paused: false, ex: [] }); S.openMenu = id; }
+      if (S.text.mode === 'new') { const id = newId('m'); S.menus.push({ id, name: v, paused: false, ex: [] }); S.openMenu = id; }
       else S.menus.find(x => x.id === S.text.id).name = v;
-      closeSheet(); break;
+      saveMenus(); closeSheet(); break;
     }
     case 'menuDel': {
       const m = S.menus.find(x => x.id === el.dataset.id);
       confirmSheet('メニュー「' + esc(m.name) + '」を削除します。過去の記録は消えません。', '削除する', () => {
         S.menus = S.menus.filter(x => x !== m);
         if (S.openMenu === m.id) S.openMenu = null;
-        closeSheet(); S.keepScroll = true; render(); S.keepScroll = false;
+        saveMenus(); closeSheet(); rerender();
       });
       return;
     }
-    case 'dummy': sheet(`<h2>試作</h2><div class="note">この操作はフェーズ1で実装します。</div><button class="btn block" data-act="close" style="margin-top:12px">閉じる</button>`); return;
-    case 'theme': applyTheme(el.dataset.t); break;
-    case 'method': S.method = +el.dataset.v; break;
-    case 'vis': S.hide[el.dataset.m] = !S.hide[el.dataset.m]; break;
-    case 'cfg': {
-      const k = el.dataset.k, d = +el.dataset.d;
-      if (k === 'freq') S.freq = Math.min(7, Math.max(1, S.freq + d));
-      else if (k.startsWith('rest:')) { const c = k.slice(5); S.rest[c] = Math.max(15, S.rest[c] + d); }
-      else if (k.startsWith('tg:')) { const m = k.slice(3); S.target[m] = Math.max(1, S.target[m] + d); }
-      break;
+
+    case 'dayAdd': S.pick = { also: false, mode: 'day' }; pickSheet('day'); return;
+    case 'menuAddEx': S.pick = { also: false, mode: 'menu:' + el.dataset.id }; pickSheet(S.pick.mode); return;
+    case 'pickMore': S.pick.open = S.pick.open || {}; S.pick.open[el.dataset.m] = !S.pick.open[el.dataset.m]; pickSheet(S.pick.mode); return;
+    case 'pickAlso': S.pick.also = !S.pick.also; pickSheet(S.pick.mode); return;
+    case 'pickEx': {
+      const id = resolveEx(el.dataset.id);
+      if (S.pick.mode === 'alt') { S.form.alts.push(id); exFormSheet(); return; }
+      addPicked(id);
+      render(); pickSheet(S.pick.mode); return;
     }
+    case 'pickBack': readForm(); pickSheet(S.pick.mode); return;
+
+    case 'editEx': exEditOpen(el.dataset.id); return;
+    case 'newEx': S.pick.q = ''; exFormOpen(el.dataset.name || '', el.dataset.m || ''); return;
+    case 'fMain': readForm(); S.form.main = el.dataset.m; S.form.msg = ''; exFormSheet(); return;
+    case 'fCat': { readForm(); const c = el.dataset.c; S.form.cat = c; S.form.lo = CAT_DEF[c][0]; S.form.hi = CAT_DEF[c][1]; exFormSheet(); return; }
+    case 'fAux': { readForm(); const m = el.dataset.m, F = S.form; F.aux = F.aux.includes(m) ? F.aux.filter(x => x !== m) : F.aux.concat(m); exFormSheet(); return; }
+    case 'fAltDel': readForm(); S.form.alts.splice(+el.dataset.k, 1); exFormSheet(); return;
+    case 'fAltAdd': readForm(); S.pick = { also: false, mode: 'alt' }; pickSheet('alt'); return;
+    case 'formBack': exFormSheet(); return;
+    case 'fCreate': exFormSave(); return;
+
+    case 'theme': applyTheme(el.dataset.t); break;
+    case 'method': S.cfg.method = +el.dataset.v; saveCfg(); break;
+    case 'vis': { const m = el.dataset.m; if (S.cfg.hide[m]) delete S.cfg.hide[m]; else S.cfg.hide[m] = true; saveCfg(); break; }
+    case 'cfg': {
+      const k = el.dataset.k, d = +el.dataset.d, c = S.cfg;
+      if (k === 'freq') c.freq = Math.min(7, Math.max(1, c.freq + d));
+      else if (k.startsWith('rest:')) { const t = k.slice(5); c.rest[t] = Math.min(W_MAX, Math.max(W_MIN, c.rest[t] + d)); }
+      else if (k.startsWith('tg:')) { const m = k.slice(3); c.target[m] = Math.max(1, c.target[m] + d); }
+      saveCfg(); break;
+    }
+    case 'backup': doBackup(); return;
+    case 'csv': doCsv(); return;
+    case 'restore': { const f = $('#file'); f.value = ''; f.click(); return; }
     case 'timer10': startTimer(10); return;
     default: return;
   }
@@ -1138,18 +819,20 @@ document.addEventListener('input', ev => {
 
 document.addEventListener('change', ev => {
   const el = ev.target;
+  if (el.id === 'file') { if (el.files[0]) onRestoreFile(el.files[0]); return; }
+  if (el.id === 'exf-main' || el.id === 'exf-cat') { readForm(); exFormSheet(); return; }
   if (el.dataset.act !== 'inp') return;
   const s = S.day.ex[+el.dataset.i].sets[+el.dataset.j], f = el.dataset.f;
   const v = parseFloat(el.value.replace(',', '.'));
-  if (v >= 0) s[f] = f === 'r' ? Math.round(v) : v;
-  S.keepScroll = true; render(); S.keepScroll = false;
+  if (v >= 0) { s[f] = f === 'r' ? Math.round(v) : Math.round(v * 100) / 100; saveDay(); }
+  rerender();
 });
 
 document.addEventListener('click', ev => {
   const g = ev.target.closest('#fig g[data-m]');
   if (!g) return;
   S.muscle = S.muscle === g.dataset.m ? null : g.dataset.m;
-  S.keepScroll = true; render(); S.keepScroll = false;
+  rerender();
 });
 
 /* ========== カラーテーマ ========== */
@@ -1184,9 +867,63 @@ function themeCard() {
 }
 
 /* ========== 起動 ========== */
-render();
-try {
-  const saved = JSON.parse(localStorage.getItem('timerEnd') || 'null');
-  if (saved && saved.end) { T.end = saved.end; T.total = saved.total; openTimer(); }
-} catch (_) {}
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+async function boot() {
+  try {
+    await Store.open();
+    const st = await Store.loadAll();
+    EX = st.exercises; DAYS = st.days; S.menus = st.menus;
+    if (st.settings) S.cfg = { ...L.defaultSettings(), ...st.settings };
+    else await firstRun();
+  } catch (e) {
+    console.error(e);
+    S.storeError = true;
+  }
+  S.ready = true;
+  render();
+  try {
+    const saved = JSON.parse(localStorage.getItem('timerEnd') || 'null');
+    if (saved && saved.end) { T.end = saved.end; T.total = saved.total; openTimer(); }
+  } catch (_) {}
+  // 保存領域を、空き容量の整理で消されないように要求する
+  try {
+    if (navigator.storage && navigator.storage.persist) {
+      S.persisted = await navigator.storage.persist();
+      if (S.tab === 'settings' && !S.day) rerender();
+    }
+  } catch (_) {}
+}
+// 初回: 同じ場所に seed.json があれば（開発中のPCだけ。公開側には置かない）復元として読み込む
+async function firstRun() {
+  try {
+    const res = await fetch('seed.json', { cache: 'no-store' });
+    if (res.ok) {
+      const st = L.parseBackup(await res.text());
+      await Store.replaceAll(st);
+      EX = st.exercises; DAYS = st.days; S.menus = st.menus; S.cfg = st.settings;
+      return;
+    }
+  } catch (_) { /* なければ空で始める */ }
+  await Store.putSettings(S.cfg);
+}
+
+/* ========== オフライン（Service Worker） ========== */
+// 新しい版が入ったら、記録の途中でなければ読み直す
+function maybeReload() {
+  if (!S.updated) return;
+  if (!S.day && $('#timer').hidden && !$('#sheet-root').innerHTML) location.reload();
+}
+// 開発中のPC（localhost）では、古いファイルが出ないように登録しない（?sw=1 で登録して試せる）
+const isLocal = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+if ('serviceWorker' in navigator && (!isLocal || location.search.includes('sw=1'))) {
+  const had = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+  }).catch(() => {});
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!had) return;
+    S.updated = true;
+    maybeReload();
+  });
+}
+
+document.addEventListener('DOMContentLoaded', boot);

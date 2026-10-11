@@ -1,0 +1,4 @@
+seed.json
+*.backup.json
+backup*.json
+*.csv

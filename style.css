@@ -503,3 +503,25 @@ html, body { height: 100%; overflow: hidden; }
 .fgrid .field label { font-size: 11px; white-space: nowrap; }
 .pick.newrow .sub { white-space: nowrap; margin-left: 10px; flex: none; }
 .pick.newrow span:first-child { min-width: 0; padding: 8px 0; }
+
+/* フェーズ1: 種目の設定、通知 */
+.field select {
+  width: 100%; height: 48px; border-radius: 12px; border: 0; background: var(--card2); color: var(--text);
+  padding: 0 12px; font: inherit; font-size: 16px; font-weight: 600; outline: 0; -webkit-appearance: none; appearance: none;
+}
+.chips.sm { margin: 0; gap: 6px; }
+.chips.sm .chip { min-height: 38px; padding: 0 11px; font-size: 13px; }
+.altrow { display: flex; align-items: center; justify-content: space-between; min-height: 44px; border-top: 1px solid var(--line); font-weight: 600; font-size: 15px; }
+.altrow:first-of-type { border-top: 0; }
+.altrow .mv { width: 44px; height: 44px; }
+#toast {
+  position: fixed; left: 50%; bottom: calc(86px + var(--safe-b)); transform: translate(-50%, 12px); z-index: 80;
+  background: var(--text); color: var(--bg); font-size: 14px; font-weight: 700; padding: 10px 16px; border-radius: 14px;
+  opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; max-width: 86vw; text-align: center;
+}
+#toast.on { opacity: 1; transform: translate(-50%, 0); }
+.exset { display: flex; width: 100%; align-items: center; gap: 10px; min-height: 34px; padding: 2px; font-size: 13px; text-align: left; color: var(--sub); }
+.exset .m { flex: 1; min-width: 0; line-height: 1.35; }
+.exset .m.has { color: var(--text); }
+.exset .g { white-space: nowrap; font-size: 12px; }
+.field select { padding-right: 34px; background-repeat: no-repeat; background-position: right 12px center; background-size: 12px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E"); }
