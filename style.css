@@ -542,3 +542,4 @@ button.pgh { width: 100%; text-align: left; }
 .figure { padding: 2px 0 6px; }
 .figure svg { width: 100%; max-width: 420px; }
 .figure text { fill: var(--sub); font-size: 12px; font-weight: 600; text-anchor: middle; stroke: none; }
+details.hist .more { font-size: 13px; padding-left: 6px; }

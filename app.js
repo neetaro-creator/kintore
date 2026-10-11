@@ -1,7 +1,7 @@
 'use strict';
 /* 画面と操作。ロジックは logic.js（純関数）、保存は db.js、人体図は figure.js、並べ替えは drag.js、タイマーは timer.js。 */
 
-const BUILD = 'p2-1011-b'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
+const BUILD = 'p2-1011-c'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
 const L = Logic;
 const MUSCLES = L.MUSCLES;
 const CATS = L.CATS;
@@ -206,7 +206,7 @@ function exCard(e, i) {
   <div class="ex c open ditem" data-i="${i}">
     ${head}
     <details class="hist">
-      <summary><span class="sugg">${sugg.text}</span>${h.length ? `<span class="pv1"> ｜ 前回 ${esc(L.fmtHist(h[0]))}</span><span class="more">直近3回 ▾</span>` : ''}</summary>
+      <summary><span class="sugg">${sugg.text}</span>${h.length ? `<span class="pv1"> ｜ 前回 ${esc(L.fmtHist(h[0]))}</span><span class="more" aria-label="直近3回を開く">▾</span>` : ''}</summary>
       ${h.length ? `<div class="hist-list">${h.map(r => `<div>${esc(L.fmtHist(r))}</div>`).join('')}</div>` : ''}
     </details>
     <button class="exset" data-act="editEx" data-id="${x.id}"><span class="m ${x.memo ? 'has' : ''}">${x.memo ? 'メモ: ' + esc(x.memo) : '固定メモなし'}</span><span class="g">種目の設定 ›</span></button>
@@ -327,7 +327,7 @@ function viewMenu() {
           </div>` : ''}
       </div>`).join('')}
     </div>
-    ${S.menus.length ? '<div class="foot-hint" style="padding:0 8px 10px">名前を長押ししてドラッグすると並べ替え。種目をタップで編集</div>' : ''}
+    ${S.menus.length ? '<div class="foot-hint" style="padding:0 8px 10px">長押しで並べ替え。種目をタップで編集</div>' : ''}
     <button class="btn block ghost small" data-act="menuNew" style="margin-bottom:12px">＋ メニューを追加</button>
     ${planRows.length ? `<div class="card c">
       <h2 style="font-size:17px;margin-bottom:2px">週のセット数（予定）</h2>
