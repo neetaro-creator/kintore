@@ -1,7 +1,7 @@
 'use strict';
 /* 画面と操作。ロジックは logic.js（純関数）、保存は db.js、人体図は figure.js、並べ替えは drag.js、タイマーは timer.js。 */
 
-const BUILD = 'p1-1011-g'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
+const BUILD = 'p2-1011-a'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
 const L = Logic;
 const MUSCLES = L.MUSCLES;
 const CATS = L.CATS;
@@ -17,7 +17,6 @@ const S = {
   day: null,      // 開いている日（保存前の作業用。種目ごとに画面用の uid を持つ）
   dayOpen: null,
   cal: (() => { const n = new Date(); return { y: n.getFullYear(), m: n.getMonth() }; })(),
-  body: 'front',
   muscle: null,
   menuPick: null, // ホームで選んだメニュー。null ならおすすめ
   menus: [],
@@ -263,11 +262,7 @@ function viewBody() {
   const noTarget = visible.filter(m => !tg.has(m) && act[m] > 0);
   const range = `${L.fmtMD(L.addDays(today, -6))}〜${L.fmtMD(today)}`;
   return `
-    <div class="seg">
-      <button class="${S.body === 'front' ? 'on' : ''}" data-act="side" data-s="front">前面</button>
-      <button class="${S.body === 'back' ? 'on' : ''}" data-act="side" data-s="back">背面</button>
-    </div>
-    <div class="figure" id="fig">${figureSvg(S.body)}</div>
+    <div class="figure" id="fig">${figureSvg()}</div>
     <div class="legend">
       <span><i style="background:var(--lv0)"></i>0セット</span>
       <span><i style="background:var(--lv1)"></i>1〜3</span>
@@ -784,7 +779,6 @@ document.addEventListener('click', ev => {
     }
     case 'doConfirm': { const f = S.confirmFn; S.confirmFn = null; if (f) f(); return; }
 
-    case 'side': S.body = el.dataset.s; break;
 
     case 'openMenu': S.openMenu = S.openMenu === el.dataset.id ? null : el.dataset.id; break;
     case 'pause': { const m = S.menus.find(x => x.id === el.dataset.id); m.paused = !m.paused; saveMenus(); break; }

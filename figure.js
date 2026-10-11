@@ -1,59 +1,60 @@
 'use strict';
 /* ========== 人体図（自作SVG・様式化） ========== */
-// m:1 は左右反転コピーも描く。座標は 240x420、中心 x=120。
-const HEAD = 'M120 6C133 6 139 18 138 32C137 44 130 52 120 52C110 52 103 44 102 32C101 18 107 6 120 6Z';
-const ARM_UP = 'M52 122L70 120Q74 144 68 170L52 168Q46 144 52 122Z';
-const FOREARM = 'M50 168L68 170Q70 200 62 228L48 226Q42 196 50 168Z';
-const HAND = 'M48 228L62 230Q64 248 58 254Q48 254 46 244Z';
-const DELT = 'M90 76Q66 72 54 90Q48 104 52 122L70 120Q74 100 88 92Z';
-const KNEE = 'M90 316Q103 324 117 314L116 332L94 334Z';
-const FOOT = 'M100 392L113 392L116 408L94 408Z';
+// 前面と背面を1枚に横並びで描く。座標は片面 240x420、中心 x=120。m:1 は左右反転コピーも描く。
+const rr = (x, y, w, h, r) => `M${x + r} ${y}h${w - 2 * r}q${r} 0 ${r} ${r}v${h - 2 * r}q0 ${r} ${-r} ${r}h${-(w - 2 * r)}q${-r} 0 ${-r} ${-r}v${-(h - 2 * r)}q0 ${-r} ${r} ${-r}z`;
+const HEAD = 'M120 8C130 8 135.5 17 135 29C134.5 40 128 50 120 50C112 50 105.5 40 105 29C104.5 17 110 8 120 8Z';
+const DELT = 'M90 71C77 66 62 72 57 88C54 100 55 112 59 123L72 119C73 105 80 93 92 86Q93 78 90 71Z';
+const ARM_UP = 'M58 125Q65 120 73 120C79 135 79 152 72 168Q64 172 57 167C51 152 52 137 58 125Z';
+const FOREARM = 'M56 170Q64 175 72 171C74 191 70 212 62 230L49 228C46 208 49 187 56 170Z';
+const HAND = 'M49 231L62 233Q64 246 58 255Q50 256 46 246Z';
+const KNEE = 'M93 317Q104 324 116 315L115 331Q105 337 95 333Z';
+const FOOT = 'M100 393L113 393L117 407Q106 410 95 407Z';
 const FIG = {
   front: {
     neutral: [
       { d: HEAD },
-      { d: 'M107 50L106 66L120 74L120 50Z', m: 1 },
-      { d: 'M106 66Q92 70 84 78L92 90L118 86L120 74Z', m: 1 },
+      { d: 'M111 46Q120 53 129 46L131 60Q120 66 109 60Z' },
+      { d: 'M109 58Q99 66 87 71Q100 75 118 74L118 66Q112 63 109 58Z', m: 1 },
       { d: FOREARM, m: 1 }, { d: HAND, m: 1 },
-      { d: 'M82 120L104 134L104 206L90 202Q84 164 82 120Z', m: 1 },
-      { d: 'M92 204L148 204L156 232Q140 250 120 252Q100 250 84 232Z' },
+      { d: 'M81 116Q88 129 104 132L104 205L90 200C86 172 80 145 81 116Z', m: 1 },
+      { d: 'M90 202L104 207Q120 214 136 207L150 202L157 232Q140 248 120 252Q100 248 83 232Z' },
       { d: KNEE, m: 1 }, { d: FOOT, m: 1 },
     ],
     muscles: {
-      胸: [{ d: 'M118 86L90 90Q80 94 80 108Q82 124 100 130Q112 132 118 128Z', m: 1 }],
+      胸: [{ d: 'M118 77Q104 77 93 87C84 95 80 104 81 113Q88 127 104 129Q113 129 118 124Z', m: 1 }],
       三角筋側部: [{ d: DELT, m: 1 }],
       上腕二頭: [{ d: ARM_UP, m: 1 }],
-      腹筋: [{ d: 'M107 134h12v14h-12zM107 151h12v14h-12zM107 168h12v14h-12zM107 185h12v14h-12z', m: 1 }],
-      大腿四頭: [{ d: 'M84 232L119 246L117 314Q103 324 90 316Q74 282 76 256Q78 240 84 232Z', m: 1 }],
-      ふくらはぎ: [{ d: 'M94 334L116 332L113 392L100 392Q90 362 94 334Z', m: 1 }],
+      腹筋: [{ d: rr(106.5, 134, 11.5, 15, 3) + rr(106.5, 152, 11.5, 15, 3) + rr(106.5, 170, 11.5, 15, 3) + 'M109.5 188h8.5v18q-7 -2 -11 -9v-6q0 -3 2.5 -3z', m: 1 }],
+      大腿四頭: [{ d: 'M83 234C76 250 78 284 92 315Q104 322 116 313L119 251Q100 247 83 234Z', m: 1 }],
+      ふくらはぎ: [{ d: 'M95 335Q105 339 115 333C117 354 115 374 112 391L101 391C93 374 89 354 95 335Z', m: 1 }],
     },
     lines: [
-      { d: 'M84 102Q96 114 118 114', m: 1 }, { d: 'M72 94Q64 106 62 120', m: 1 }, { d: 'M61 128Q64 146 60 166', m: 1 },
-      { d: 'M101 254Q97 286 105 312', m: 1 }, { d: 'M88 264Q86 290 94 308', m: 1 }, { d: 'M104 342Q100 366 106 388', m: 1 },
+      { d: 'M71 80Q63 96 63 114', m: 1 }, { d: 'M100 256Q96 286 104 312', m: 1 }, { d: 'M88 262Q86 288 95 308', m: 1 },
+      { d: 'M104 342Q101 364 106 388', m: 1 },
     ],
   },
   back: {
     neutral: [
       { d: HEAD },
-      { d: 'M107 50L106 62Q112 66 120 68L120 50Z', m: 1 },
+      { d: 'M110 46Q120 50 130 46L132 57Q120 60 108 57Z' },
       { d: FOREARM, m: 1 }, { d: HAND, m: 1 },
-      { d: 'M120 196L96 198Q84 214 86 240Q104 254 120 248Z', m: 1 },
+      { d: 'M120 199L100 199Q86 214 86 236Q102 252 120 247Z', m: 1 },
       { d: KNEE, m: 1 }, { d: FOOT, m: 1 },
     ],
     muscles: {
       背中: [
-        { d: 'M120 58L106 62Q92 70 86 78L92 92Q108 100 120 126Z', m: 1 },
-        { d: 'M92 92Q108 100 120 126L120 196L98 196Q82 160 80 124Q82 100 92 92Z', m: 1 },
+        { d: 'M120 55L108 58Q99 66 87 72L93 88Q109 98 120 126Z', m: 1 },
+        { d: 'M93 90Q110 100 120 128L120 197L100 197C90 176 81 150 81 120Q83 100 93 90Z', m: 1 },
       ],
       三角筋後部: [{ d: DELT, m: 1 }],
       上腕三頭: [{ d: ARM_UP, m: 1 }],
-      ハムストリングス: [{ d: 'M86 244Q104 256 119 250L117 314Q103 324 90 316Q76 284 78 262Q80 250 86 244Z', m: 1 }],
-      ふくらはぎ: [{ d: 'M95 332Q86 350 92 372Q96 384 101 392L112 392Q118 360 117 332Z', m: 1 }],
+      ハムストリングス: [{ d: 'M86 240Q102 255 119 250L116 313Q104 322 92 315C79 286 78 262 86 240Z', m: 1 }],
+      ふくらはぎ: [{ d: 'M94 334Q105 339 116 333C120 352 117 372 112 391L101 391C91 372 87 352 94 334Z', m: 1 }],
     },
     lines: [
-      { d: 'M120 62L120 196' }, { d: 'M98 100Q104 114 114 122', m: 1 }, { d: 'M100 152Q108 170 118 178', m: 1 },
-      { d: 'M62 132Q66 148 60 168', m: 1 }, { d: 'M72 94Q64 106 62 120', m: 1 },
-      { d: 'M104 262Q102 290 106 312', m: 1 }, { d: 'M105 340Q101 366 106 390', m: 1 },
+      { d: 'M120 58L120 197' }, { d: 'M97 98Q104 112 114 120', m: 1 }, { d: 'M100 150Q108 168 118 178', m: 1 },
+      { d: 'M71 80Q63 96 63 114', m: 1 }, { d: 'M62 132Q66 148 61 164', m: 1 },
+      { d: 'M104 258Q102 288 106 312', m: 1 }, { d: 'M105 340Q102 364 106 388', m: 1 },
     ],
   },
 };
@@ -61,14 +62,20 @@ const MIRROR = 'transform="translate(240 0) scale(-1 1)"';
 function paths(list) {
   return list.map(p => `<path d="${p.d}"/>` + (p.m ? `<path d="${p.d}" ${MIRROR}/>` : '')).join('');
 }
-function figureSvg(side) {
-  const f = FIG[side], act = actual();
-  const defs = '<defs>' + [0, 1, 2, 3, 4].map(i => `<linearGradient id="g${i}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--g${i}a)"/><stop offset="1" style="stop-color:var(--g${i}b)"/></linearGradient>`).join('') + '</defs>';
-  const neutral = `<g class="neutral">${paths(f.neutral)}</g>`;
+// 片面ぶん。設定で非表示にした部位は、色を付けず、タップもできない
+function figureSide(side, act) {
+  const f = FIG[side];
   const ms = Object.entries(f.muscles).map(([name, list]) => {
+    if (S.cfg.hide[name]) return `<g class="neutral">${paths(list)}</g>`;
     const lv = L.level(act[name], S.cfg.target[name]);
     return `<g data-m="${name}" class="${S.muscle === name ? 'sel' : ''}" style="fill:url(#g${lv})">${paths(list)}</g>`;
   }).join('');
-  const lines = `<g class="lines">${paths(f.lines)}</g>`;
-  return `<svg viewBox="0 0 240 420" role="img" aria-label="${side === 'front' ? '前面' : '背面'}の人体図">${defs}${neutral}${ms}${lines}</svg>`;
+  return `<g class="neutral">${paths(f.neutral)}</g>${ms}<g class="lines">${paths(f.lines)}</g>`;
+}
+function figureSvg() {
+  const act = actual();
+  const defs = '<defs>' + [0, 1, 2, 3, 4].map(i => `<linearGradient id="g${i}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--g${i}a)"/><stop offset="1" style="stop-color:var(--g${i}b)"/></linearGradient>`).join('') + '</defs>';
+  return `<svg viewBox="34 0 344 436" role="img" aria-label="前面と背面の人体図">${defs}
+    <g>${figureSide('front', act)}</g><g transform="translate(172 0)">${figureSide('back', act)}</g>
+    <text x="120" y="430">前面</text><text x="292" y="430">背面</text></svg>`;
 }

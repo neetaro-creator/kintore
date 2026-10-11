@@ -537,3 +537,8 @@ button.pgh { width: 100%; text-align: left; }
 #timer.done #timer-hint { color: #fff; font-size: 19px; }
 #timer.done::before { content: ''; position: absolute; inset: 0; background: var(--ring-done); opacity: 0; animation: alarmflash 1s ease-in-out infinite; }
 @keyframes alarmflash { 50% { opacity: .3; } }
+
+/* フェーズ2: 人体図（前面と背面を横並び） */
+.figure { padding: 2px 0 6px; }
+.figure svg { width: 100%; max-width: 420px; }
+.figure text { fill: var(--sub); font-size: 12px; font-weight: 600; text-anchor: middle; stroke: none; }
