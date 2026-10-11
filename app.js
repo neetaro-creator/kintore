@@ -2,7 +2,7 @@
 /* フェーズ0: 見た目の試作。データはすべてダミー。保存もしない（タイマーの終了時刻だけ localStorage）。 */
 
 /* ========== ダミーデータ ========== */
-const BUILD = 'p0-1011-o';
+const BUILD = 'p0-1011-p';
 const MUSCLES = ['胸', '背中', '三角筋側部', '三角筋後部', '上腕二頭', '上腕三頭', '大腿四頭', 'ハムストリングス', 'ふくらはぎ', '腹筋'];
 const CAT_REST = { 多: 150, 単: 105, カ腹: 75 };
 const CAT_NAME = { 多: '多関節', 単: '単関節', カ腹: 'カーフ・腹筋' };
@@ -40,8 +40,70 @@ const DAYS_AGO = { 胸: 4, 背中: 4, 三角筋側部: 4, 三角筋後部: 11, �
       if (Object.values(EX).some(x => x.name === name)) return;
       const id = 'a_' + e.id + '_' + k;
       EX[id] = { id, name, cat: e.cat, main: e.main, aux: e.aux, range: e.range, sets: e.sets, inc: e.inc, alts: [], memo: '' };
-      USE[id] = 1 + ((k + e.id.length) % 3);
+      USE[id] = 0;
     });
+  });
+})();
+
+// プリセット種目: [名前, 区分, 主働筋, 補助筋, レンジ下限, 上限, セット数, 増量幅]
+const EX_PRESETS = [
+  // 胸
+  ['ダンベルベンチプレス', '多', '胸', '上腕三頭', 8, 12, 3, 2], ['チェストプレス（マシン）', '多', '胸', '上腕三頭', 8, 12, 3, 2.5],
+  ['ペックデック（マシンフライ）', '単', '胸', null, 10, 15, 3, 2.5], ['ケーブルフライ', '単', '胸', null, 10, 15, 3, 2.5],
+  ['ダンベルフライ', '単', '胸', null, 10, 12, 3, 1], ['インクラインダンベルフライ', '単', '胸', null, 10, 12, 3, 1],
+  ['スミスマシンインクラインプレス', '多', '胸', '上腕三頭', 8, 10, 3, 2.5], ['デクラインベンチプレス', '多', '胸', '上腕三頭', 8, 10, 3, 2.5],
+  ['ディップス（胸）', '多', '胸', '上腕三頭', 8, 12, 3, 2.5], ['ケーブルクロスオーバー', '単', '胸', null, 12, 15, 3, 2.5],
+  ['ローケーブルフライ', '単', '胸', null, 12, 15, 3, 2.5], ['腕立て伏せ', '多', '胸', '上腕三頭', 10, 20, 3, 0],
+  // 背中
+  ['ベントオーバーロウ', '多', '背中', '上腕二頭', 8, 10, 3, 2.5], ['シーテッドロウ', '多', '背中', '上腕二頭', 10, 12, 3, 2.5],
+  ['Tバーロウ', '多', '背中', '上腕二頭', 8, 12, 3, 2.5], ['ハンマーストレングス・ロウ（マシン）', '多', '背中', '上腕二頭', 8, 12, 3, 2.5],
+  ['ナローグリップ・ラットプルダウン', '多', '背中', '上腕二頭', 8, 12, 3, 2.5], ['ワンハンド・ケーブルロウ', '多', '背中', '上腕二頭', 10, 12, 3, 2.5],
+  ['ストレートアームプルダウン', '単', '背中', null, 12, 15, 3, 2.5], ['ダンベルプルオーバー', '単', '背中', null, 10, 12, 3, 2],
+  ['デッドリフト', '多', '背中', 'ハムストリングス', 5, 8, 3, 5], ['バックエクステンション', '単', '背中', null, 12, 15, 3, 0],
+  ['ダンベルシュラッグ', '単', '背中', null, 10, 15, 3, 2], ['チンニング（逆手）', '多', '背中', '上腕二頭', 6, 10, 3, 2.5],
+  // 三角筋側部
+  ['ダンベルショルダープレス', '多', '三角筋側部', '上腕三頭', 8, 12, 3, 2], ['マシンショルダープレス', '多', '三角筋側部', '上腕三頭', 8, 12, 3, 2.5],
+  ['バーベルショルダープレス', '多', '三角筋側部', '上腕三頭', 6, 10, 3, 2.5], ['アーノルドプレス', '多', '三角筋側部', '上腕三頭', 8, 12, 3, 2],
+  ['ワンハンド・ケーブルサイドレイズ', '単', '三角筋側部', null, 12, 15, 3, 1], ['アップライトロウ', '多', '三角筋側部', null, 8, 12, 3, 2.5],
+  ['フロントレイズ', '単', '三角筋側部', null, 12, 15, 3, 1], ['リーニング・サイドレイズ', '単', '三角筋側部', null, 12, 15, 3, 1],
+  // 三角筋後部
+  ['リアデルトフライ（マシン）', '単', '三角筋後部', null, 12, 15, 3, 2.5], ['フェイスプル', '単', '三角筋後部', null, 12, 15, 3, 2.5],
+  ['ベントオーバー・リアレイズ', '単', '三角筋後部', null, 12, 15, 3, 1], ['ケーブル・リアデルトフライ', '単', '三角筋後部', null, 12, 15, 3, 1],
+  ['バンドプルアパート', '単', '三角筋後部', null, 15, 20, 3, 0],
+  // 上腕二頭
+  ['バーベルカール', '単', '上腕二頭', null, 8, 12, 3, 2.5], ['ハンマーカール', '単', '上腕二頭', null, 10, 12, 3, 1],
+  ['プリーチャーカール', '単', '上腕二頭', null, 8, 12, 3, 2.5], ['コンセントレーションカール', '単', '上腕二頭', null, 10, 12, 3, 1],
+  ['スパイダーカール', '単', '上腕二頭', null, 10, 12, 3, 1], ['リバースカール', '単', '上腕二頭', null, 10, 12, 2, 2.5],
+  ['ケーブル・ハンマーカール', '単', '上腕二頭', null, 10, 12, 3, 2.5],
+  // 上腕三頭
+  ['ロープ・プレスダウン', '単', '上腕三頭', null, 12, 15, 3, 2.5], ['リバースグリップ・プレスダウン', '単', '上腕三頭', null, 12, 15, 3, 2.5],
+  ['ライイング・トライセプスエクステンション（EZバー）', '単', '上腕三頭', null, 10, 12, 3, 2.5], ['フレンチプレス（ダンベル）', '単', '上腕三頭', null, 10, 12, 3, 2],
+  ['ケーブル・オーバーヘッドエクステンション', '単', '上腕三頭', null, 10, 15, 3, 2.5], ['ナローグリップ・ベンチプレス', '多', '上腕三頭', '胸', 6, 10, 3, 2.5],
+  ['ディップス（上腕三頭）', '多', '上腕三頭', '胸', 8, 12, 3, 2.5], ['キックバック', '単', '上腕三頭', null, 12, 15, 3, 1],
+  // 大腿四頭
+  ['バーベルスクワット', '多', '大腿四頭', null, 6, 10, 3, 5], ['フロントスクワット', '多', '大腿四頭', null, 6, 10, 3, 2.5],
+  ['ゴブレットスクワット', '多', '大腿四頭', null, 10, 15, 3, 2.5], ['ウォーキングランジ', '多', '大腿四頭', null, 10, 12, 3, 2],
+  ['シシースクワット', '単', '大腿四頭', null, 10, 15, 3, 0], ['ワンレッグ・レッグプレス', '多', '大腿四頭', null, 10, 12, 3, 5],
+  // ハムストリングス
+  ['ライイング・レッグカール', '単', 'ハムストリングス', null, 10, 12, 3, 2.5], ['シーテッド・レッグカール', '単', 'ハムストリングス', null, 10, 12, 3, 2.5],
+  ['スティッフレッグド・デッドリフト', '多', 'ハムストリングス', '背中', 8, 10, 3, 5], ['グッドモーニング', '多', 'ハムストリングス', '背中', 8, 12, 3, 2.5],
+  ['ワンレッグ・ルーマニアンデッドリフト', '多', 'ハムストリングス', null, 8, 12, 3, 2], ['ノルディックハムカール', '単', 'ハムストリングス', null, 6, 10, 3, 0],
+  // ふくらはぎ
+  ['スタンディング・カーフレイズ', 'カ腹', 'ふくらはぎ', null, 10, 15, 3, 2.5], ['シーテッド・カーフレイズ', 'カ腹', 'ふくらはぎ', null, 12, 20, 3, 2.5],
+  ['ドンキーカーフレイズ', 'カ腹', 'ふくらはぎ', null, 12, 15, 3, 2.5], ['ワンレッグ・カーフレイズ（ダンベル）', 'カ腹', 'ふくらはぎ', null, 12, 15, 3, 1],
+  // 腹筋
+  ['クランチ', 'カ腹', '腹筋', null, 15, 25, 3, 0], ['レッグレイズ', 'カ腹', '腹筋', null, 12, 20, 3, 0],
+  ['アブローラー', 'カ腹', '腹筋', null, 8, 15, 3, 0], ['シットアップ', 'カ腹', '腹筋', null, 15, 25, 3, 0],
+  ['ロシアンツイスト', 'カ腹', '腹筋', null, 20, 30, 3, 0], ['ドラゴンフラッグ', 'カ腹', '腹筋', null, 5, 10, 3, 0],
+  ['サイドクランチ', 'カ腹', '腹筋', null, 15, 20, 3, 0],
+];
+(function addPresets() {
+  const have = new Set(Object.values(EX).map(e => e.name));
+  EX_PRESETS.forEach((p, i) => {
+    if (have.has(p[0])) return;
+    const id = 'p_' + i;
+    EX[id] = { id, name: p[0], cat: p[1], main: p[2], aux: p[3], range: [p[4], p[5]], sets: p[6], inc: p[7], alts: [], memo: '' };
+    USE[id] = 0;
   });
 })();
 
@@ -650,35 +712,106 @@ function wheelTo(v, smooth) {
 }
 
 /* ========== 種目の追加・メニュー編集・確認 ========== */
+const toKana = t => t.replace(/[ぁ-ゖ]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60)).toLowerCase();
+function pickCtx() {
+  const mode = S.pick.mode, isDay = mode === 'day';
+  const menu = isDay ? S.menus.find(m => m.id === S.day.menuId) : S.menus.find(m => 'menu:' + m.id === mode);
+  const have = new Set(isDay ? S.day.ex.map(e => e.id) : (menu ? menu.ex : []));
+  return { isDay, menu, have };
+}
+function pickListHtml() {
+  const { have } = pickCtx();
+  const q = (S.pick.q || '').trim(), nq = toKana(q);
+  const open = S.pick.open || (S.pick.open = {});
+  let groups = MUSCLES.map(m => ({
+    m,
+    list: Object.values(EX).filter(e => e.main === m).sort((x, y) => (USE[y.id] || 0) - (USE[x.id] || 0)),
+  }));
+  if (nq) groups = groups.map(g => ({ m: g.m, list: g.list.filter(e => toKana(e.name).includes(nq)) }));
+  groups = groups.filter(g => g.list.length);
+  const exact = nq && Object.values(EX).some(e => toKana(e.name) === nq);
+  const addNew = q && !exact ? `<button class="pick pk newrow" data-act="newEx" data-name="${esc(q)}"><span>「${esc(q)}」を新しい種目として追加</span><span class="sub">作成</span></button>` : '';
+  const none = nq && !groups.length ? '<div class="empty" style="padding:12px 0">一致する種目がありません</div>' : '';
+  return addNew + none + groups.map(g => {
+    const shown = open[g.m] || nq ? g.list : g.list.slice(0, 3);
+    return `<div class="pg">
+        <div class="pgh"><b>${g.m}</b><span class="sub">${nq ? g.list.length + '件' : (DAYS_AGO[g.m] != null ? DAYS_AGO[g.m] + '日前' : '記録なし')}</span></div>
+        ${shown.map(e => { const dis = have.has(e.id); return `<button class="pick pk" ${dis ? 'disabled style="opacity:.4"' : `data-act="pickEx" data-id="${e.id}"`}><span>${esc(e.name)}</span><span class="sub">${dis ? '追加済み' : '＋'}</span></button>`; }).join('')}
+        ${nq ? '' : `<div class="pgf">
+          <button data-act="newEx" data-m="${g.m}" class="acc">種目を追加</button>
+          ${g.list.length > 3 ? `<button data-act="pickMore" data-m="${g.m}">${open[g.m] ? '閉じる ▴' : 'すべて表示 (' + g.list.length + ') ▾'}</button>` : '<span></span>'}
+        </div>`}
+      </div>`;
+  }).join('');
+}
 function pickSheet(mode) {
   // mode: 'day' または 'menu:<メニューID>'
+  S.pick.mode = mode;
   const keepScroll = $('#sheet-root .sheet') ? $('#sheet-root .sheet').scrollTop : 0;
-  const isDay = mode === 'day';
-  const menu = isDay ? S.menus.find(m => m.id === S.day.menuId) : S.menus.find(m => 'menu:' + m.id === mode);
-  const have = new Set(isDay ? S.day.ex.map(e => e.id) : menu.ex);
-  const open = S.pick.open || (S.pick.open = {});
+  const { isDay, menu } = pickCtx();
   const also = isDay && menu ? `<button class="toggle ${S.pick.also ? 'on' : ''}" style="width:100%;margin-bottom:6px" data-act="pickAlso">${S.pick.also ? '✓ ' : ''}今後の「${esc(menu.name)}」メニューにも追加する</button>` : '';
-  const groups = MUSCLES.map(m => ({
-    m,
-    list: Object.values(EX).filter(e => e.main === m).sort((x, y) => (USE[y.id] || 0) - (USE[x.id] || 0) || x.name.localeCompare(y.name, 'ja')),
-  })).filter(g => g.list.length);
   sheet(`<h2 style="margin-bottom:4px">種目を追加</h2>
     <div class="sub" style="margin-bottom:8px">${isDay ? '今日の記録に入れます' : `「${esc(menu.name)}」に入れます`}。よくやる種目が上に出ます</div>
+    <input id="pk-q" class="pkq" type="text" inputmode="text" autocomplete="off" autocapitalize="off" placeholder="種目名で探す。なければ、そのまま入力して追加" value="${esc(S.pick.q || '')}">
     ${also}
-    ${groups.map(g => {
-      const shown = open[g.m] ? g.list : g.list.slice(0, 3);
-      return `<div class="pg">
-        <div class="pgh"><b>${g.m}</b><span class="sub">${DAYS_AGO[g.m] != null ? DAYS_AGO[g.m] + '日前' : '記録なし'}</span></div>
-        ${shown.map(e => { const dis = have.has(e.id); return `<button class="pick pk" ${dis ? 'disabled style="opacity:.4"' : `data-act="pickEx" data-id="${e.id}"`}><span>${esc(e.name)}</span><span class="sub">${dis ? '追加済み' : '＋'}</span></button>`; }).join('')}
-        <div class="pgf">
-          <button data-act="dummy" class="acc">種目を追加</button>
-          ${g.list.length > 3 ? `<button data-act="pickMore" data-m="${g.m}">${open[g.m] ? '閉じる ▴' : 'すべて表示 (' + g.list.length + ') ▾'}</button>` : '<span></span>'}
-        </div>
-      </div>`;
-    }).join('')}
+    <div id="pklist">${pickListHtml()}</div>
     <button class="btn block" data-act="close" style="margin-top:14px">閉じる</button>`);
-  S.pick.mode = mode;
   $('#sheet-root .sheet').scrollTop = keepScroll;
+}
+
+/* ----- 新しい種目を作る ----- */
+const CAT_DEF = { 多: [8, 10], 単: [12, 15], カ腹: [12, 15] };
+function exFormOpen(name, main) {
+  const cat = main === 'ふくらはぎ' || main === '腹筋' ? 'カ腹' : '単';
+  S.form = { name: name || '', main: main || '', cat, lo: CAT_DEF[cat][0], hi: CAT_DEF[cat][1], sets: 3, inc: 2.5, msg: '' };
+  exFormSheet();
+}
+function readForm() {
+  const F = S.form, v = id => { const e = document.getElementById(id); return e ? e.value : null; };
+  if (v('exf-name') !== null) F.name = v('exf-name');
+  const n = (id, cur, float) => { const x = parseFloat((v(id) || '').replace(',', '.')); return x >= 0 ? (float ? x : Math.round(x)) : cur; };
+  if (v('exf-lo') !== null) { F.lo = n('exf-lo', F.lo); F.hi = n('exf-hi', F.hi); F.sets = n('exf-sets', F.sets); F.inc = n('exf-inc', F.inc, true); }
+}
+function exFormSheet() {
+  const F = S.form;
+  sheet(`<h2>種目を作成</h2>
+    <div class="field"><label>名前</label><input id="exf-name" value="${esc(F.name)}" maxlength="30" placeholder="例: ケーブルプルオーバー" autocomplete="off"></div>
+    <div class="field"><label>部位（主働筋）</label>
+      <div class="chips" style="margin:0;gap:6px">${MUSCLES.map(m => `<button class="chip ${F.main === m ? 'on' : ''}" data-act="fMain" data-m="${m}">${m}</button>`).join('')}</div></div>
+    <div class="field"><label>区分</label>
+      <div class="seg" style="margin:0">${['多', '単', 'カ腹'].map(c => `<button class="${F.cat === c ? 'on' : ''}" data-act="fCat" data-c="${c}">${CAT_NAME[c]}</button>`).join('')}</div></div>
+    <div class="fgrid">
+      <div class="field"><label>レンジ下限</label><input id="exf-lo" class="num" inputmode="numeric" value="${F.lo}"></div>
+      <div class="field"><label>上限</label><input id="exf-hi" class="num" inputmode="numeric" value="${F.hi}"></div>
+      <div class="field"><label>セット数</label><input id="exf-sets" class="num" inputmode="numeric" value="${F.sets}"></div>
+      <div class="field"><label>増量幅kg</label><input id="exf-inc" class="num" inputmode="decimal" value="${F.inc}"></div>
+    </div>
+    <div class="note" id="exf-msg" style="color:var(--danger);min-height:18px">${esc(F.msg)}</div>
+    <button class="btn primary block" data-act="fCreate" style="min-height:52px">作成して追加</button>
+    <button class="btn block ghost" data-act="pickBack" style="margin-top:8px">戻る</button>`);
+}
+function exFormCreate() {
+  readForm();
+  const F = S.form, name = F.name.trim();
+  if (!name) { F.msg = '名前を入力してください'; exFormSheet(); return; }
+  if (!F.main) { F.msg = '部位を選んでください'; exFormSheet(); return; }
+  if (!(F.lo >= 1 && F.hi >= F.lo)) { F.msg = 'レンジは、下限 ≦ 上限 で入れてください'; exFormSheet(); return; }
+  let e = Object.values(EX).find(x => toKana(x.name) === toKana(name));
+  if (!e) {
+    const id = 'u_' + Date.now();
+    e = EX[id] = { id, name, cat: F.cat, main: F.main, aux: null, range: [F.lo, F.hi], sets: Math.max(1, F.sets), inc: F.inc, alts: [], memo: '' };
+    USE[id] = 1;
+  }
+  const { isDay, menu, have } = pickCtx();
+  if (!have.has(e.id)) {
+    if (isDay) {
+      const ne = { uid: UID++, id: e.id, alt: null, sets: [] };
+      S.day.ex.push(ne); S.dayOpen = ne.uid;
+      if (S.pick.also && menu && !menu.ex.includes(e.id)) menu.ex.push(e.id);
+    } else if (menu) menu.ex.push(e.id);
+  }
+  closeSheet();
+  S.keepScroll = true; render(); S.keepScroll = false;
 }
 function textSheet(title, value, mode, id) {
   S.text = { mode, id };
@@ -936,6 +1069,11 @@ document.addEventListener('click', ev => {
     }
     case 'editEx': editExSheet(el.dataset.id); return;
     case 'dayAdd': S.pick = { also: false, mode: 'day' }; pickSheet('day'); return;
+    case 'newEx': S.pick.q = ''; exFormOpen(el.dataset.name || '', el.dataset.m || ''); return;
+    case 'fMain': readForm(); S.form.main = el.dataset.m; S.form.msg = ''; exFormSheet(); return;
+    case 'fCat': { readForm(); const c = el.dataset.c; S.form.cat = c; S.form.lo = CAT_DEF[c][0]; S.form.hi = CAT_DEF[c][1]; exFormSheet(); return; }
+    case 'fCreate': exFormCreate(); return;
+    case 'pickBack': readForm(); pickSheet(S.pick.mode); return;
     case 'pickMore': S.pick.open = S.pick.open || {}; S.pick.open[el.dataset.m] = !S.pick.open[el.dataset.m]; pickSheet(S.pick.mode); return;
     case 'pickAlso': S.pick.also = !S.pick.also; pickSheet(S.pick.mode); return;
     case 'pickEx': {
@@ -992,6 +1130,10 @@ document.addEventListener('click', ev => {
     default: return;
   }
   render(); S.keepScroll = false;
+});
+
+document.addEventListener('input', ev => {
+  if (ev.target.id === 'pk-q') { S.pick.q = ev.target.value; const l = document.getElementById('pklist'); if (l) l.innerHTML = pickListHtml(); }
 });
 
 document.addEventListener('change', ev => {
