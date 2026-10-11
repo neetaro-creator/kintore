@@ -349,3 +349,11 @@ details.hist[open] .more { display: none; }
 
 .foot-hint { font-size: 12.5px; line-height: 1.6; color: var(--sub); text-align: center; padding: 6px 8px 4px; }
 .foot-hint b { color: #c7c7cc; }
+
+/* iPhone(ホーム画面追加)で下に空白ができる問題への対策: 枠を画面全体に固定する */
+html, body { height: 100%; overflow: hidden; }
+#app { position: fixed; top: 0; right: 0; bottom: 0; left: 0; height: auto; }
+
+/* 画面上部: ステータスバーの下にスクロール内容が透けて、ぼやけて見えるのを防ぐ */
+#app { padding-top: var(--safe-t); background: var(--bg); }
+#view { padding-top: 14px; }
