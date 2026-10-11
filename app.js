@@ -1,7 +1,7 @@
 'use strict';
 /* 画面と操作。ロジックは logic.js（純関数）、保存は db.js、人体図は figure.js、並べ替えは drag.js、タイマーは timer.js。 */
 
-const BUILD = 'p1-1011-d'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
+const BUILD = 'p1-1011-e'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
 const L = Logic;
 const MUSCLES = L.MUSCLES;
 const CATS = L.CATS;
@@ -184,6 +184,7 @@ function viewDay() {
       <button class="btn primary grow" data-act="dayAdd">＋ 種目を追加</button>
       <button class="btn ghost" data-act="copyDay">過去の日をコピー</button>
     </div>
+    ${D.date !== todayKey() && t.sets ? `<button class="btn block ghost" data-act="copyToToday" style="margin-top:8px">この日の内容を今日にコピー</button>` : ''}
     ${D.ex.length ? `<div class="hint" style="margin:10px 0 0;text-align:center">種目名を長押しして、ドラッグで並べ替え</div>` : ''}`;
 }
 function exCard(e, i) {
@@ -214,7 +215,7 @@ function exCard(e, i) {
     <div class="ex-actions">
       ${slot.alts.length ? `<button class="chip" data-act="alt" data-i="${i}">代替に変更</button>` : ''}
       <button class="chip" data-act="copyEx" data-i="${i}">過去の記録をコピー</button>
-      <button class="chip dangerchip" data-act="dayDel" data-i="${i}">今日から外す</button>
+      <button class="chip dangerchip" data-act="dayDel" data-i="${i}">${S.day.date === todayKey() ? '今日' : 'この日'}から外す</button>
     </div>
   </div>`;
 }
@@ -758,6 +759,19 @@ document.addEventListener('click', ev => {
       S.day = out;
       if (!S.day.ex.some(e => e.uid === S.dayOpen)) openFirstUnfinished();
       saveDay(); closeSheet(); toast('コピーしました'); break;
+    }
+    case 'copyToToday': {
+      // 開いている日の全種目を、今日の記録にコピーして、今日を開く
+      const today = todayKey(), cur = DAYS[today];
+      const go = () => {
+        const out = L.copyDay(cur || { date: today, menuId: null, ex: [] }, D);
+        DAYS[today] = out; save(() => Store.putDay(out));
+        closeSheet(); openDay(today, null); toast('今日にコピーしました');
+      };
+      const n = cur ? L.dayTotals(cur).sets : 0;
+      if (n) confirmSheet('今日はすでに' + n + 'セットの記録があります。その末尾に追加します。', '追加する', go, false);
+      else go();
+      return;
     }
     case 'dayDel': {
       const e = D.ex[i];
