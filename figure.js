@@ -14,13 +14,13 @@ const FIG = {
     neutral: [
       { d: HEAD },
       { d: 'M111 46Q120 53 129 46L131 60Q120 66 109 60Z' },
-      { d: 'M109 58Q99 66 87 71Q100 75 118 74L118 66Q112 63 109 58Z', m: 1 },
       { d: FOREARM, m: 1 }, { d: HAND, m: 1 },
       { d: 'M81 116Q88 129 104 132L104 205L90 200C86 172 80 145 81 116Z', m: 1 },
       { d: 'M90 202L104 207Q120 214 136 207L150 202L157 232Q140 248 120 252Q100 248 83 232Z' },
       { d: KNEE, m: 1 }, { d: FOOT, m: 1 },
     ],
     muscles: {
+      背中: [{ d: 'M109 58Q99 66 87 71Q100 75 118 74L118 66Q112 63 109 58Z', m: 1 }], // 僧帽筋
       胸: [{ d: 'M118 77Q104 77 93 87C84 95 80 104 81 113Q88 127 104 129Q113 129 118 124Z', m: 1 }],
       三角筋側部: [{ d: DELT, m: 1 }],
       上腕二頭: [{ d: ARM_UP, m: 1 }],
@@ -58,6 +58,7 @@ const FIG = {
     ],
   },
 };
+const FIG_Y = 0.92;
 const MIRROR = 'transform="translate(240 0) scale(-1 1)"';
 function paths(list) {
   return list.map(p => `<path d="${p.d}"/>` + (p.m ? `<path d="${p.d}" ${MIRROR}/>` : '')).join('');
@@ -75,7 +76,8 @@ function figureSide(side, act) {
 function figureSvg() {
   const act = actual();
   const defs = '<defs>' + [0, 1, 2, 3, 4].map(i => `<linearGradient id="g${i}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--g${i}a)"/><stop offset="1" style="stop-color:var(--g${i}b)"/></linearGradient>`).join('') + '</defs>';
-  return `<svg viewBox="34 0 344 436" role="img" aria-label="前面と背面の人体図">${defs}
-    <g>${figureSide('front', act)}</g><g transform="translate(172 0)">${figureSide('back', act)}</g>
-    <text x="120" y="430">前面</text><text x="292" y="430">背面</text></svg>`;
+  // 縦を少し詰めて描く（FIG_Y）。座標そのものは 240x420 のまま
+  return `<svg viewBox="34 0 344 ${Math.round(412 * FIG_Y) + 24}" role="img" aria-label="前面と背面の人体図">${defs}
+    <g transform="scale(1 ${FIG_Y})">${figureSide('front', act)}</g><g transform="translate(172 0) scale(1 ${FIG_Y})">${figureSide('back', act)}</g>
+    <text x="120" y="${Math.round(412 * FIG_Y) + 18}">前面</text><text x="292" y="${Math.round(412 * FIG_Y) + 18}">背面</text></svg>`;
 }
