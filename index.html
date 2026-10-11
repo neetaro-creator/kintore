@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="筋トレ">
+<meta name="theme-color" content="#0d0d0f">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<link rel="stylesheet" href="style.css">
+<title>筋トレ</title>
+</head>
+<body>
+<div id="app">
+  <main id="view"></main>
+  <nav id="tabs">
+    <button data-act="tab" data-t="home">ホーム</button>
+    <button data-act="tab" data-t="body">部位</button>
+    <button data-act="tab" data-t="menu">メニュー</button>
+    <button data-act="tab" data-t="settings">設定</button>
+  </nav>
+</div>
+<div id="sheet-root"></div>
+<div id="timer" hidden>
+  <svg viewBox="0 0 300 300" aria-hidden="true">
+    <circle class="ring-bg" cx="150" cy="150" r="130"/>
+    <circle class="ring-fg" id="ring-fg" cx="150" cy="150" r="130"/>
+    <circle class="ring-press" id="ring-press" cx="150" cy="150" r="112"/>
+  </svg>
+  <div id="timer-num">0:00</div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
