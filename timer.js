@@ -41,8 +41,9 @@ function wheelTo(v, smooth) {
 }
 
 /* ========== タイマー ========== */
-const T = { end: 0, total: 0, iv: 0, done: false, wl: null, press: 0, ctx: null, alarm: 0, alarmEnd: 0, tap: false };
+const T = { end: 0, total: 0, iv: 0, done: false, wl: null, press: 0, pressAt: 0, raf: 0, ctx: null, alarm: 0, alarmEnd: 0, tap: false };
 const RING_LEN = 2 * Math.PI * 130, PRESS_LEN = 2 * Math.PI * 112;
+const PRESS_MS = 1500; // 長押しで終了するまでの時間
 const ALARM_EVERY = 1400, ALARM_MAX = 3 * 60 * 1000; // 終了音は、閉じるまでくり返す（最長3分）
 
 function startTimer(sec) {
@@ -67,12 +68,27 @@ function openTimer() {
   tick();
   clearInterval(T.iv);
   T.iv = setInterval(tick, 200);
+  if (!T.raf) T.raf = requestAnimationFrame(frame);
   getWakeLock();
+}
+// 2つの輪を、毎フレーム、実際の時刻から描く。長押しの輪が一周した時点で閉じる（輪の進みと終了がずれない）
+function frame() {
+  T.raf = 0;
+  if ($('#timer').hidden) return;
+  const now = Date.now(), left = Math.max(0, T.end - now);
+  $('#ring-fg').style.strokeDashoffset = left > 0 ? RING_LEN * (1 - left / T.total) : 0;
+  if (T.pressAt) {
+    const p = Math.min(1, (now - T.pressAt) / PRESS_MS);
+    $('#ring-press').style.strokeDashoffset = PRESS_LEN * (1 - p);
+    if (p >= 1) { closeTimer(); return; }
+  }
+  T.raf = requestAnimationFrame(frame);
 }
 // 長押しの表示を最初の状態に戻す
 function resetPress() {
   const pr = $('#ring-press');
   clearTimeout(T.press);
+  T.pressAt = 0;
   $('#timer').classList.remove('pressing');
   pr.style.transition = 'none';
   pr.style.strokeDasharray = PRESS_LEN;
@@ -86,7 +102,6 @@ function tick() {
   $('#ring-fg').style.strokeDashoffset = left > 0 ? RING_LEN * (1 - left / T.total) : 0;
   if (left <= 0 && !T.done) {
     T.done = true;
-    resetPress();
     $('#timer').classList.add('done');
     $('#timer-hint').textContent = 'タップで閉じる';
     startAlarm();
@@ -122,6 +137,7 @@ async function getWakeLock() {
 }
 function closeTimer() {
   clearInterval(T.iv);
+  cancelAnimationFrame(T.raf); T.raf = 0;
   stopAlarm();
   resetPress();
   $('#timer').hidden = true;
@@ -130,7 +146,7 @@ function closeTimer() {
   try { if (T.wl) { T.wl.release(); T.wl = null; } } catch (_) {}
 }
 (function bindTimer() {
-  const t = $('#timer'), pr = $('#ring-press');
+  const t = $('#timer');
   const stop = e => { e.preventDefault(); };
   ['touchmove', 'gesturestart', 'gesturechange', 'dblclick', 'contextmenu', 'click', 'wheel'].forEach(ev =>
     t.addEventListener(ev, stop, { passive: false }));
@@ -140,19 +156,20 @@ function closeTimer() {
     e.preventDefault();
     if (T.done) { T.tap = true; return; }
     resetPress();
-    pr.getBoundingClientRect(); // ここで一度描画させて、輪が必ず0から伸びるようにする
+    T.pressAt = Date.now();
     t.classList.add('pressing');
-    pr.style.transition = 'stroke-dashoffset 1.5s linear';
-    pr.style.strokeDashoffset = 0;
-    T.press = setTimeout(closeTimer, 1500);
+    if (!T.raf) T.raf = requestAnimationFrame(frame);
+    T.press = setTimeout(closeTimer, PRESS_MS + 400); // 描画が止まっていても必ず閉じる
   };
   const up = e => {
-    if (T.done) { if (T.tap && e.type === 'pointerup') closeTimer(); T.tap = false; return; }
+    const pressing = !!T.pressAt;
     resetPress();
+    if (T.done && T.tap && !pressing && e.type === 'pointerup') closeTimer();
+    T.tap = false;
   };
   t.addEventListener('pointerdown', down);
   ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => t.addEventListener(ev, up));
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && !t.hidden) { tick(); getWakeLock(); }
+    if (document.visibilityState === 'visible' && !t.hidden) { tick(); if (!T.raf) T.raf = requestAnimationFrame(frame); getWakeLock(); }
   });
 })();
