@@ -2,7 +2,7 @@
 /* フェーズ0: 見た目の試作。データはすべてダミー。保存もしない（タイマーの終了時刻だけ localStorage）。 */
 
 /* ========== ダミーデータ ========== */
-const BUILD = 'p0-1011-f';
+const BUILD = 'p0-1011-g';
 const MUSCLES = ['胸', '背中', '三角筋側部', '三角筋後部', '上腕二頭', '上腕三頭', '大腿四頭', 'ハムストリングス', 'ふくらはぎ', '腹筋'];
 const CAT_REST = { 多: 150, 単: 105, カ腹: 75 };
 const CAT_NAME = { 多: '多関節', 単: '単関節', カ腹: 'カーフ・腹筋' };
@@ -30,6 +30,20 @@ const EX = {};
 EX_ROWS.forEach(r => {
   EX[r[0]] = { id: r[0], name: r[1], cat: r[2], main: r[3], aux: r[4], range: r[5], sets: r[6], inc: r[7], alts: r[8], memo: r[0] === 'hack' ? 'シート位置 3、足は肩幅やや外' : '' };
 });
+
+// 種目ライブラリ: 使用回数（ダミー）。代替種目も、種目として登録する
+const USE = { bench: 14, incline: 9, dbpress: 8, csrow: 10, halfdl: 6, chin: 7, sider: 12, reard: 8, pdown: 9, dbcurl: 6, ezcurl: 5, hack: 11, legext: 10, legcurl: 8, calf: 9, abs: 9 };
+const DAYS_AGO = { 胸: 4, 背中: 4, 三角筋側部: 4, 三角筋後部: 11, 上腕二頭: 4, 上腕三頭: 4, 大腿四頭: 6, ハムストリングス: 6, ふくらはぎ: 6, 腹筋: 6 };
+(function addAltsToLibrary() {
+  Object.values(EX).slice().forEach(e => {
+    e.alts.forEach((name, k) => {
+      if (Object.values(EX).some(x => x.name === name)) return;
+      const id = 'a_' + e.id + '_' + k;
+      EX[id] = { id, name, cat: e.cat, main: e.main, aux: e.aux, range: e.range, sets: e.sets, inc: e.inc, alts: [], memo: '' };
+      USE[id] = 1 + ((k + e.id.length) % 3);
+    });
+  });
+})();
 
 const S = {
   tab: 'home',
@@ -640,18 +654,26 @@ function pickSheet(mode) {
   const isDay = mode === 'day';
   const menu = isDay ? S.menus.find(m => m.id === S.day.menuId) : S.menus.find(m => 'menu:' + m.id === mode);
   const have = new Set(isDay ? S.day.ex.map(e => e.id) : menu.ex);
-  const inAny = new Set();
-  S.menus.forEach(m => m.ex.forEach(id => inAny.add(id)));
-  const groups = S.menus.map(m => ({ title: m.name, ids: m.ex })).concat([{ title: 'どのメニューにも入っていない種目', ids: Object.keys(EX).filter(id => !inAny.has(id)) }]);
-  const also = isDay && menu ? `<button class="toggle ${S.pick.also ? 'on' : ''}" style="width:100%;margin-bottom:10px" data-act="pickAlso">${S.pick.also ? '✓ ' : ''}「${esc(menu.name)}」メニューにも追加する</button>` : '';
-  sheet(`<h2>種目を追加</h2>
-    <div class="sub" style="margin-bottom:8px">${isDay ? '今日の記録に入れます' : `「${esc(menu.name)}」に入れます`}</div>
+  const open = S.pick.open || (S.pick.open = {});
+  const also = isDay && menu ? `<button class="toggle ${S.pick.also ? 'on' : ''}" style="width:100%;margin-bottom:6px" data-act="pickAlso">${S.pick.also ? '✓ ' : ''}「${esc(menu.name)}」メニューにも追加する</button>` : '';
+  const groups = MUSCLES.map(m => ({
+    m,
+    list: Object.values(EX).filter(e => e.main === m).sort((x, y) => (USE[y.id] || 0) - (USE[x.id] || 0) || x.name.localeCompare(y.name, 'ja')),
+  })).filter(g => g.list.length);
+  sheet(`<h2 style="margin-bottom:4px">種目を追加</h2>
+    <div class="sub" style="margin-bottom:8px">${isDay ? '今日の記録に入れます' : `「${esc(menu.name)}」に入れます`}。よくやる種目が上に出ます</div>
     ${also}
-    ${groups.filter(g => g.ids.length).map(g => `<div class="sub pkh">${esc(g.title)}</div>` + g.ids.map(id => {
-      const e = EX[id], dis = have.has(id);
-      return `<button class="pick pk" ${dis ? 'disabled style="opacity:.4"' : `data-act="pickEx" data-id="${id}"`}><span>${esc(e.name)}<span class="sub"> ・ ${e.main}</span></span><span class="sub">${dis ? '追加済み' : '＋'}</span></button>`;
-    }).join('')).join('')}
-    <button class="pick pk" data-act="dummy"><span>新しい種目を作成</span><span class="sub">フェーズ1</span></button>
+    ${groups.map(g => {
+      const shown = open[g.m] ? g.list : g.list.slice(0, 3);
+      return `<div class="pg">
+        <div class="pgh"><b>${g.m}</b><span class="sub">${DAYS_AGO[g.m] != null ? DAYS_AGO[g.m] + '日前' : '記録なし'}</span></div>
+        ${shown.map(e => { const dis = have.has(e.id); return `<button class="pick pk" ${dis ? 'disabled style="opacity:.4"' : `data-act="pickEx" data-id="${e.id}"`}><span>${esc(e.name)}</span><span class="sub">${dis ? '追加済み' : '＋'}</span></button>`; }).join('')}
+        <div class="pgf">
+          <button data-act="dummy" class="acc">種目を追加</button>
+          ${g.list.length > 3 ? `<button data-act="pickMore" data-m="${g.m}">${open[g.m] ? '閉じる ▴' : 'すべて表示 (' + g.list.length + ') ▾'}</button>` : '<span></span>'}
+        </div>
+      </div>`;
+    }).join('')}
     <button class="btn block" data-act="close" style="margin-top:14px">閉じる</button>`);
   S.pick.mode = mode;
   $('#sheet-root .sheet').scrollTop = keepScroll;
@@ -912,6 +934,7 @@ document.addEventListener('click', ev => {
     }
     case 'editEx': editExSheet(el.dataset.id); return;
     case 'dayAdd': S.pick = { also: false, mode: 'day' }; pickSheet('day'); return;
+    case 'pickMore': S.pick.open = S.pick.open || {}; S.pick.open[el.dataset.m] = !S.pick.open[el.dataset.m]; pickSheet(S.pick.mode); return;
     case 'pickAlso': S.pick.also = !S.pick.also; pickSheet(S.pick.mode); return;
     case 'pickEx': {
       const id = el.dataset.id, mode = S.pick.mode;

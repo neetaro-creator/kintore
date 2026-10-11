@@ -363,3 +363,12 @@ html, body { height: 100%; overflow: hidden; }
 .pick.pk .sub { font-size: 12px; }
 .pkh { margin: 10px 0 0; font-weight: 700; font-size: 12px; letter-spacing: .02em; }
 .pkh + .pick.pk { border-top: 0; }
+
+/* 種目追加: 部位ごとのカード */
+.pg { background: #26262a; border-radius: 14px; margin: 10px 0; overflow: hidden; }
+.pgh { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 14px 6px; }
+.pgh b { font-size: 17px; font-weight: 800; }
+.pg .pick.pk { padding: 0 14px; border-top: 1px solid var(--line); min-height: 44px; }
+.pgf { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--line); padding: 0 14px; }
+.pgf button { min-height: 44px; font-size: 13px; color: var(--sub); font-weight: 600; }
+.pgf button.acc { color: #6fb0ff; }
