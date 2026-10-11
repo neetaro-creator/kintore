@@ -2,7 +2,7 @@
 /* フェーズ0: 見た目の試作。データはすべてダミー。保存もしない（タイマーの終了時刻だけ localStorage）。 */
 
 /* ========== ダミーデータ ========== */
-const BUILD = 'p0-1011-k';
+const BUILD = 'p0-1011-l';
 const MUSCLES = ['胸', '背中', '三角筋側部', '三角筋後部', '上腕二頭', '上腕三頭', '大腿四頭', 'ハムストリングス', 'ふくらはぎ', '腹筋'];
 const CAT_REST = { 多: 150, 単: 105, カ腹: 75 };
 const CAT_NAME = { 多: '多関節', 単: '単関節', カ腹: 'カーフ・腹筋' };
@@ -491,14 +491,16 @@ function viewMenu() {
 function viewSettings() {
   return `
     <div class="card">
-      <div class="setrow"><div>週の頻度</div>${stepper('freq', S.freq, '回')}</div>
-      <div class="setrow"><div>おすすめの方式</div>
-        <div class="seg" style="margin:0;width:190px">
-          <button class="${S.method === 1 ? 'on' : ''}" data-act="method" data-v="1">方式1</button>
-          <button class="${S.method === 2 ? 'on' : ''}" data-act="method" data-v="2">方式2</button>
-        </div>
+      <h2>週の頻度</h2>
+      <div class="setrow"><div>トレーニングする回数</div>${stepper('freq', S.freq, '回')}</div>
+    </div>
+    <div class="card">
+      <h2>おすすめメニューの方式</h2>
+      <div class="seg" style="margin:4px 0 8px">
+        <button class="${S.method === 1 ? 'on' : ''}" data-act="method" data-v="1">方式1</button>
+        <button class="${S.method === 2 ? 'on' : ''}" data-act="method" data-v="2">方式2</button>
       </div>
-      <div class="note" style="padding-bottom:6px">方式1: 最終実施が一番古いメニュー ／ 方式2: 最後に実施したメニューの次</div>
+      <div class="note">方式1: 最終実施が一番古いメニュー<br>方式2: 最後に実施したメニューの次</div>
     </div>
     <div class="card">
       <h2>休息秒数の既定</h2>
