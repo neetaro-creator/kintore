@@ -13,7 +13,7 @@
   --lv3: #9fe2ff;
   --neutral: #25252a;
   --danger: #ff453a;
-  --safe-b: min(env(safe-area-inset-bottom, 0px), 34px);
+  --safe-b: max(min(env(safe-area-inset-bottom, 0px), 34px), 26px);
   --safe-t: env(safe-area-inset-top, 0px);
   --tab-h: 56px;
 }

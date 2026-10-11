@@ -2,7 +2,7 @@
 /* フェーズ0: 見た目の試作。データはすべてダミー。保存もしない（タイマーの終了時刻だけ localStorage）。 */
 
 /* ========== ダミーデータ ========== */
-const BUILD = 'p0-1011-d';
+const BUILD = 'p0-1011-e';
 const MUSCLES = ['胸', '背中', '三角筋側部', '三角筋後部', '上腕二頭', '上腕三頭', '大腿四頭', 'ハムストリングス', 'ふくらはぎ', '腹筋'];
 const CAT_REST = { 多: 150, 単: 105, カ腹: 75 };
 const CAT_NAME = { 多: '多関節', 単: '単関節', カ腹: 'カーフ・腹筋' };
@@ -512,21 +512,7 @@ function viewSettings() {
       <h2>試作用</h2>
       <button class="btn block" data-act="timer10">タイマー画面を試す（10秒）</button>
     </div>
-    <div class="foot-hint">版 ${BUILD}<br>${diag()}</div>`;
-}
-function diag() {
-  const probe = document.createElement('div');
-  probe.style.cssText = 'position:fixed;left:0;top:0;visibility:hidden;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)';
-  document.body.appendChild(probe);
-  const cs = getComputedStyle(probe);
-  const top = cs.paddingTop, bot = cs.paddingBottom;
-  probe.remove();
-  const h = id => { const e = document.getElementById(id); return e ? Math.round(e.getBoundingClientRect().height) : '-'; };
-  const tabs = document.getElementById('tabs');
-  const tb = tabs ? Math.round(tabs.getBoundingClientRect().bottom) : '-';
-  const vv = window.visualViewport ? Math.round(window.visualViewport.height) : '-';
-  const sa = window.navigator.standalone ? 'アプリ表示' : 'Safari表示';
-  return `${sa} / inner ${window.innerWidth}×${window.innerHeight} / screen ${screen.width}×${screen.height} / vv ${vv}<br>安全領域 上${top} 下${bot} / タブ下端 ${tb} / 枠 ${h('app')}`;
+    <div class="foot-hint">版 ${BUILD}</div>`;
 }
 function stepper(k, v, unit, step = 1) {
   return `<div class="stepper"><button data-act="cfg" data-k="${k}" data-d="-${step}">−</button><span class="num" style="min-width:52px;text-align:center;font-weight:800;font-size:18px">${v}<small style="margin-left:2px">${unit}</small></span><button data-act="cfg" data-k="${k}" data-d="${step}">＋</button></div>`;
