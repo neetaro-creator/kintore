@@ -1,6 +1,6 @@
 // フェーズ0用の簡易Service Worker。ネットワーク優先、失敗時にキャッシュ。
 // 更新したら CACHE の番号を上げる。
-const CACHE = 'kintore-p0-2';
+const CACHE = 'kintore-p0-3';
 const FILES = ['./', 'index.html', 'app.js', 'style.css', 'manifest.json', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {

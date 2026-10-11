@@ -2,7 +2,7 @@
 /* フェーズ0: 見た目の試作。データはすべてダミー。保存もしない（タイマーの終了時刻だけ localStorage）。 */
 
 /* ========== ダミーデータ ========== */
-const BUILD = 'p0-1011-m';
+const BUILD = 'p0-1011-n';
 const MUSCLES = ['胸', '背中', '三角筋側部', '三角筋後部', '上腕二頭', '上腕三頭', '大腿四頭', 'ハムストリングス', 'ふくらはぎ', '腹筋'];
 const CAT_REST = { 多: 150, 単: 105, カ腹: 75 };
 const CAT_NAME = { 多: '多関節', 単: '単関節', カ腹: 'カーフ・腹筋' };
@@ -210,10 +210,9 @@ const MIRROR = 'transform="translate(240 0) scale(-1 1)"';
 function paths(list) {
   return list.map(p => `<path d="${p.d}"/>` + (p.m ? `<path d="${p.d}" ${MIRROR}/>` : '')).join('');
 }
-const GRAD = [['#47474e', '#2c2c31'], ['#2d5aa8', '#1a3566'], ['#58a0ff', '#2468e0'], ['#d2f3ff', '#7fd0f5'], ['#2f2f35', '#1d1d21']];
 function figureSvg(side) {
   const f = FIG[side], act = actual();
-  const defs = '<defs>' + GRAD.map((g, i) => `<linearGradient id="g${i}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${g[0]}"/><stop offset="1" stop-color="${g[1]}"/></linearGradient>`).join('') + '</defs>';
+  const defs = '<defs>' + [0, 1, 2, 3, 4].map(i => `<linearGradient id="g${i}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--g${i}a)"/><stop offset="1" style="stop-color:var(--g${i}b)"/></linearGradient>`).join('') + '</defs>';
   const neutral = `<g class="neutral">${paths(f.neutral)}</g>`;
   const ms = Object.entries(f.muscles).map(([name, list]) => {
     const lv = level(act[name], S.target[name]);
@@ -490,6 +489,7 @@ function viewMenu() {
 /* --- 設定 --- */
 function viewSettings() {
   return `
+    ${themeCard()}
     <div class="card">
       <h2>週の頻度</h2>
       <div class="setrow"><div>トレーニングする回数</div>${stepper('freq', S.freq, '回')}</div>
@@ -978,6 +978,7 @@ document.addEventListener('click', ev => {
       return;
     }
     case 'dummy': sheet(`<h2>試作</h2><div class="note">この操作はフェーズ1で実装します。</div><button class="btn block" data-act="close" style="margin-top:12px">閉じる</button>`); return;
+    case 'theme': applyTheme(el.dataset.t); break;
     case 'method': S.method = +el.dataset.v; break;
     case 'vis': S.hide[el.dataset.m] = !S.hide[el.dataset.m]; break;
     case 'cfg': {
@@ -1008,6 +1009,37 @@ document.addEventListener('click', ev => {
   S.muscle = S.muscle === g.dataset.m ? null : g.dataset.m;
   S.keepScroll = true; render(); S.keepScroll = false;
 });
+
+/* ========== カラーテーマ ========== */
+// [id, 表示名, 明るさ, テーマカラー(ステータスバー用)]
+const THEMES = [
+  ['paper', 'ペーパー', 'light', '#f2f4f8'], ['mint', 'ミント', 'light', '#eef6f2'], ['sand', 'サンド', 'light', '#f7f2ea'], ['lavender', 'ラベンダー', 'light', '#f4f1fb'],
+  ['black', 'ブラック', 'dark', '#0d0d0f'], ['midnight', 'ミッドナイト', 'dark', '#0a1020'], ['forest', 'フォレスト', 'dark', '#0b130f'], ['graphite', 'グラファイト', 'dark', '#121110'],
+];
+S.theme = document.documentElement.getAttribute('data-theme') || 'black';
+function applyTheme(id) {
+  const t = THEMES.find(x => x[0] === id) || THEMES[4];
+  document.documentElement.setAttribute('data-theme', t[0]);
+  const sb = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+  if (sb) sb.setAttribute('content', t[2] === 'light' ? 'default' : 'black');
+  const tc = document.querySelector('meta[name="theme-color"]');
+  if (tc) tc.setAttribute('content', t[3]);
+  try { localStorage.setItem('kintore-theme', t[0]); } catch (_) {}
+  S.theme = t[0];
+}
+function themeTile(t) {
+  return `<button class="theme ${S.theme === t[0] ? 'on' : ''}" data-theme="${t[0]}" data-act="theme" data-t="${t[0]}" aria-pressed="${S.theme === t[0]}"><span class="tp"><i></i><i></i><u></u></span><b>${t[1]}</b></button>`;
+}
+function themeCard() {
+  return `<div class="card">
+      <h2>カラー</h2>
+      <div class="theme-group">明るい</div>
+      <div class="themes">${THEMES.filter(t => t[2] === 'light').map(themeTile).join('')}</div>
+      <div class="theme-group">暗い</div>
+      <div class="themes">${THEMES.filter(t => t[2] === 'dark').map(themeTile).join('')}</div>
+      <div class="note" style="margin-top:10px">画面上の時計の帯（ステータスバー）の色は、アプリを開き直すと変わります。</div>
+    </div>`;
+}
 
 /* ========== 起動 ========== */
 render();

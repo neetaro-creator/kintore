@@ -2,12 +2,33 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
+<script>
+(function () {
+  var light = { paper: '#f2f4f8', mint: '#eef6f2', sand: '#f7f2ea', lavender: '#f4f1fb' };
+  var dark = { black: '#0d0d0f', midnight: '#0a1020', forest: '#0b130f', graphite: '#121110' };
+  var id = 'black';
+  try { id = localStorage.getItem('kintore-theme') || 'black'; } catch (e) {}
+  if (!light[id] && !dark[id]) id = 'black';
+  document.documentElement.setAttribute('data-theme', id);
+  document.documentElement.setAttribute('data-tone', light[id] ? 'light' : 'dark');
+  window.__themeBoot = { id: id, light: !!light[id], color: light[id] || dark[id] };
+})();
+</script>
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="筋トレ">
-<meta name="theme-color" content="#0d0d0f">
+<meta name="theme-color" content="#0d0d0f" id="meta-theme">
+<script>
+(function () {
+  var b = window.__themeBoot; if (!b) return;
+  var sb = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+  if (sb) sb.setAttribute('content', b.light ? 'default' : 'black');
+  var tc = document.getElementById('meta-theme');
+  if (tc) tc.setAttribute('content', b.color);
+})();
+</script>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-192.png">
