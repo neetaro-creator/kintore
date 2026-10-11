@@ -384,3 +384,28 @@ h2, .menu-name, .exhead .en, .mrow .t b, .prow .pn, .rec-name, .pgh b { color: v
 .menu-card.c.open .menu-name { color: var(--title); }
 .exhead .en .tag { color: #b9d6ff; }
 .sheet h2 { color: var(--title); }
+
+/* 見出しは「文字の色」ではなく「行の背景色」で区別する（青い帯） */
+:root { --title: #fff; --band: rgba(47, 128, 255, .24); }
+.pgh b { color: #fff; }
+.pgh .sub { color: #cfe2ff; }
+.sheet h2 { color: var(--text); }
+
+/* カードの見出し（設定、部位、メニューの週セット数など） */
+.card > h2:first-child { margin: -16px -16px 10px; padding: 11px 16px; background: var(--band); border-radius: 18px 18px 0 0; }
+.card.c > h2:first-child { margin: -12px -14px 8px; padding: 10px 14px; border-radius: 14px 14px 0 0; }
+
+/* メニューカードの見出し行 */
+.menu-card.c { padding: 0 12px 6px; }
+.menu-card.c:not(.open) { padding-bottom: 0; }
+.menu-card.c > .row:first-child { margin: 0 -12px; padding: 0 12px; background: var(--band); border-radius: 14px; }
+.menu-card.c.open > .row:first-child { border-radius: 14px 14px 0 0; }
+.menu-card.c.open { background: var(--card); box-shadow: none; }
+
+/* 日別: 開いている種目の見出し行だけ帯にする */
+.ex.c.open > .exhead { margin: 0 -8px; width: calc(100% + 16px); padding: 8px 10px; background: var(--band); border-radius: 14px 14px 0 0; }
+
+/* 設定: 部位名が折り返さないように、±ボタンの幅を少し詰める */
+.setrow .grow { white-space: nowrap; font-size: 15px; }
+.setrow .grow ~ .stepper button { width: 36px; }
+.setrow .grow ~ .stepper .num { min-width: 40px !important; }
