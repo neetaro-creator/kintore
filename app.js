@@ -1,7 +1,7 @@
 'use strict';
 /* 画面と操作。ロジックは logic.js（純関数）、保存は db.js、人体図は figure.js、並べ替えは drag.js、タイマーは timer.js。 */
 
-const BUILD = 'p1-1011-c'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
+const BUILD = 'p1-1011-d'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
 const L = Logic;
 const MUSCLES = L.MUSCLES;
 const CATS = L.CATS;
@@ -550,6 +550,7 @@ function exEditOpen(id) {
   const e = EX[id];
   S.form = { id, name: e.name, main: e.main, aux: e.aux.slice(), cat: e.cat, lo: e.range[0], hi: e.range[1], sets: e.sets, inc: e.inc, rest: e.rest, memo: e.memo, alts: e.alts.filter(a => EX[a]), msg: '' };
   exFormSheet();
+  $('#sheet-root .sheet').scrollTop = 0;
 }
 function readForm() {
   const F = S.form, v = id => { const e = document.getElementById(id); return e ? e.value : null; };
@@ -566,6 +567,8 @@ function exFormSheet() {
   const F = S.form, edit = !!F.id;
   const sh = $('#sheet-root .sheet'), keep = sh && $('#exf-name') ? sh.scrollTop : 0;
   const opt = (v, label, cur) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${label}</option>`;
+  const stack = S.formStack || [], parent = stack[stack.length - 1];
+  const busy = new Set(stack.map(f => f.id).concat(F.id));
   let extra = '';
   if (edit) {
     const last = L.historyOf(DAYS, F.id, null, 1)[0];
@@ -578,11 +581,12 @@ function exFormSheet() {
     <div class="field"><label>インターバル</label>
       <select id="exf-rest">${opt('', `区分の基準値（${mmss(S.cfg.rest[F.cat])}）`, F.rest ? String(F.rest) : '')}${rests.map(s => opt(String(s), mmss(s), F.rest ? String(F.rest) : '')).join('')}</select></div>
     <div class="field"><label>固定メモ（シート位置など）</label><input id="exf-memo" value="${esc(F.memo)}" maxlength="80" autocomplete="off"></div>
-    <div class="field"><label>代替種目（上から優先）</label>
-      ${F.alts.map((a, k) => `<div class="altrow"><span>${esc(EX[a].name)}</span><button class="mv dangertxt" data-act="fAltDel" data-k="${k}" aria-label="代替から外す">✕</button></div>`).join('')}
+    <div class="field"><label>代替種目（上から優先。名前をタップで、その種目の設定）</label>
+      ${F.alts.map((a, k) => `<div class="altrow">${busy.has(a) ? `<span>${esc(EX[a].name)}</span>` : `<button class="altname" data-act="fAltEdit" data-k="${k}"><span>${esc(EX[a].name)}</span><span class="sub">${rangeText(EX[a])}×${EX[a].sets} ›</span></button>`}<button class="mv dangertxt" data-act="fAltDel" data-k="${k}" aria-label="代替から外す">✕</button></div>`).join('')}
       <button class="btn small ghost block" data-act="fAltAdd" style="margin-top:6px">＋ 代替種目を追加</button></div>`;
   }
   sheet(`<h2>${edit ? '種目の設定' : '種目を作成'}</h2>
+    ${edit && parent ? `<div class="sub" style="margin:-8px 0 10px">「${esc(parent.name)}」の代替種目</div>` : ''}
     <div class="field"><label>名前${edit ? '（変えても履歴はつながります）' : ''}</label><input id="exf-name" value="${esc(F.name)}" maxlength="30" placeholder="例: ケーブルプルオーバー" autocomplete="off"></div>
     ${edit ? `<div class="field two row" style="gap:10px">
       <div class="grow"><label>部位（主働筋）</label><select id="exf-main">${MUSCLES.map(m => opt(m, m, F.main)).join('')}</select></div>
@@ -601,7 +605,7 @@ function exFormSheet() {
     ${extra}
     <div class="note" id="exf-msg" style="color:var(--danger);min-height:18px">${esc(F.msg)}</div>
     <button class="btn primary block" data-act="fCreate" style="min-height:52px">${edit ? '保存' : '作成して追加'}</button>
-    <button class="btn block ghost" data-act="${edit ? 'close' : 'pickBack'}" style="margin-top:8px">${edit ? 'やめる' : '戻る'}</button>`);
+    <button class="btn block ghost" data-act="${!edit ? 'pickBack' : parent ? 'formPop' : 'close'}" style="margin-top:8px">${!edit ? '戻る' : parent ? `保存せずに「${esc(parent.name)}」へ戻る` : 'やめる'}</button>`);
   $('#sheet-root .sheet').scrollTop = keep;
 }
 function exFormSave() {
@@ -617,6 +621,7 @@ function exFormSave() {
     if (same && same.id !== F.id) return bad('同じ名前の種目がすでにあります');
     Object.assign(EX[F.id], fields);
     saveEx(EX[F.id]);
+    if (S.formStack && S.formStack.length) { rerender(); formPop(); return; } // 代替の設定から、元の種目の設定へ戻る
     closeSheet(); rerender();
     return;
   }
@@ -625,6 +630,7 @@ function exFormSave() {
   addPicked(e.id);
   closeSheet(); rerender();
 }
+function formPop() { S.form = S.formStack.pop(); S.form.msg = ''; exFormSheet(); }
 // 選んだ種目を、開いている追加先（日 / メニュー）に入れる
 function addPicked(id) {
   const { isDay, menu, have } = pickCtx();
@@ -805,12 +811,14 @@ document.addEventListener('click', ev => {
     }
     case 'pickBack': readForm(); pickSheet(S.pick.mode); return;
 
-    case 'editEx': exEditOpen(el.dataset.id); return;
+    case 'editEx': S.formStack = []; exEditOpen(el.dataset.id); return;
     case 'newEx': S.pick.q = ''; exFormOpen(el.dataset.name || '', el.dataset.m || ''); return;
     case 'fMain': readForm(); S.form.main = el.dataset.m; S.form.msg = ''; exFormSheet(); return;
     case 'fCat': { readForm(); const c = el.dataset.c; S.form.cat = c; S.form.lo = CAT_DEF[c][0]; S.form.hi = CAT_DEF[c][1]; exFormSheet(); return; }
     case 'fAux': { readForm(); const m = el.dataset.m, F = S.form; F.aux = F.aux.includes(m) ? F.aux.filter(x => x !== m) : F.aux.concat(m); exFormSheet(); return; }
     case 'fAltDel': readForm(); S.form.alts.splice(+el.dataset.k, 1); exFormSheet(); return;
+    case 'fAltEdit': readForm(); S.formStack.push(S.form); exEditOpen(S.form.alts[+el.dataset.k]); return;
+    case 'formPop': formPop(); return;
     case 'fAltAdd': readForm(); S.pick = { also: false, mode: 'alt' }; pickSheet('alt'); return;
     case 'formBack': exFormSheet(); return;
     case 'fCreate': exFormSave(); return;

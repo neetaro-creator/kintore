@@ -530,3 +530,5 @@ html, body { height: 100%; overflow: hidden; }
 .steps > div:first-child { border-top: 0; }
 .steps > div > b { flex: none; width: 24px; height: 24px; border-radius: 12px; background: var(--accent); color: var(--on-accent); font-size: 13px; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
 .steps em { font-style: normal; font-weight: 800; }
+.altrow .altname { flex: 1; min-width: 0; min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 10px; text-align: left; font-weight: 600; font-size: 15px; color: var(--text); }
+.altrow .altname .sub { white-space: nowrap; font-weight: 500; }
