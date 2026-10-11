@@ -2,7 +2,7 @@
 /* フェーズ0: 見た目の試作。データはすべてダミー。保存もしない（タイマーの終了時刻だけ localStorage）。 */
 
 /* ========== ダミーデータ ========== */
-const BUILD = 'p0-1011-l';
+const BUILD = 'p0-1011-m';
 const MUSCLES = ['胸', '背中', '三角筋側部', '三角筋後部', '上腕二頭', '上腕三頭', '大腿四頭', 'ハムストリングス', 'ふくらはぎ', '腹筋'];
 const CAT_REST = { 多: 150, 単: 105, カ腹: 75 };
 const CAT_NAME = { 多: '多関節', 単: '単関節', カ腹: 'カーフ・腹筋' };
@@ -350,7 +350,7 @@ function exCard(e, i) {
     ${base.memo ? `<details class="memo"><summary>固定メモ</summary><p>${esc(base.memo)}</p></details>` : ''}
     ${e.sets.length ? `<div class="set-h"><span class="a"></span><span class="b">kg</span><span class="c">回</span></div>` : ''}
     ${e.sets.map((s, j) => setRow(i, j, s, base)).join('')}
-    <div class="row addrow"><button class="btn primary grow addset" data-act="addset" data-i="${i}">＋ セット追加</button><button class="btn ghost addset" data-act="timer" data-i="${i}">休息タイマー</button></div>
+    <div class="row addrow"><button class="btn primary grow addset" data-act="addset" data-i="${i}">＋ セット追加</button><button class="btn ghost addset" data-act="timer" data-i="${i}">インターバル</button></div>
     <div class="ex-actions">
       ${base.alts.length ? `<button class="chip" data-act="alt" data-i="${i}">代替に変更</button>` : ''}
       <button class="chip" data-act="copyEx" data-i="${i}">過去の記録をコピー</button>
@@ -503,7 +503,7 @@ function viewSettings() {
       <div class="note">方式1: 最終実施が一番古いメニュー<br>方式2: 最後に実施したメニューの次</div>
     </div>
     <div class="card">
-      <h2>休息秒数の既定</h2>
+      <h2>インターバルの基準値</h2>
       ${['多', '単', 'カ腹'].map(c => `<div class="setrow"><div>${CAT_NAME[c]}</div>${stepper('rest:' + c, S.rest[c], '秒', 15)}</div>`).join('')}
     </div>
     <div class="card">
@@ -575,7 +575,7 @@ function editExSheet(id) {
       <div class="grow"><label>増量幅 kg${pct ? `（約${pct.toFixed(1)}%）` : ''}</label><input class="num" value="${e.inc}"></div>
     </div>
     ${warn}
-    <div class="field"><label>休息秒数（空欄で区分の既定 ${S.rest[e.cat]}秒）</label><input class="num" placeholder="${S.rest[e.cat]}"></div>
+    <div class="field"><label>インターバル（空欄で区分の基準値 ${S.rest[e.cat]}秒）</label><input class="num" placeholder="${S.rest[e.cat]}"></div>
     <div class="field"><label>固定メモ</label><input value="${esc(e.memo)}"></div>
     <div class="field"><label>代替種目</label><input value="${esc(e.alts.join('、') || 'なし')}"></div>
     <div class="note">試作のため、保存はしません。</div>
@@ -617,8 +617,8 @@ function timerSheet(def) {
   for (let v = W_MIN; v <= W_MAX; v += W_STEP) vals.push(v);
   S.timerPick = def;
   const presets = PRESETS.concat(PRESETS.includes(def) ? [] : [def]).sort((a, b) => a - b);
-  sheet(`<h2>休息タイマー</h2>
-    <div class="chips" id="presets" style="margin:0 0 6px">${presets.map(v => `<button class="chip" data-act="timerPreset" data-v="${v}">${mmss(v)}${v === def ? '<span class="sub" style="margin-left:4px;font-size:11px">既定</span>' : ''}</button>`).join('')}</div>
+  sheet(`<h2>インターバル</h2>
+    <div class="chips" id="presets" style="margin:0 0 6px">${presets.map(v => `<button class="chip" data-act="timerPreset" data-v="${v}">${mmss(v)}${v === def ? '<span class="sub" style="margin-left:4px;font-size:11px">基準</span>' : ''}</button>`).join('')}</div>
     <div class="wheelwrap"><div class="wheel" id="wheel">${vals.map(v => `<div data-act="wheelItem" data-v="${v}">${mmss(v)}</div>`).join('')}</div></div>
     <div class="note" style="text-align:center;margin:4px 0 10px">スクロールで時間を変えられます（15秒刻み）</div>
     <button class="btn primary block" data-act="timerGo" style="min-height:56px;font-size:18px">スタート</button>
