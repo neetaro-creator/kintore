@@ -1,7 +1,7 @@
 'use strict';
 /* 画面と操作。ロジックは logic.js（純関数）、保存は db.js、人体図は figure.js、並べ替えは drag.js、タイマーは timer.js。 */
 
-const BUILD = 'p2-1011-c'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
+const BUILD = 'p2-1012-a'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
 const L = Logic;
 const MUSCLES = L.MUSCLES;
 const CATS = L.CATS;
@@ -156,6 +156,7 @@ let UID = 1;
 const menuEntries = menu => menu.ex.filter(id => EX[id]).map(id => ({ uid: UID++, id, orig: null, sets: [] }));
 // 保存済みの日があればそれを開く。なければ、メニュー（任意）から新しい日を作る（操作するまで保存しない）
 function openDay(date, menu) {
+  S.swipeUid = null;
   const saved = DAYS[date];
   S.day = saved
     ? { date, menuId: saved.menuId, ex: saved.ex.filter(e => EX[e.id]).map(e => ({ uid: UID++, id: e.id, orig: e.orig, sets: e.sets.map(s => ({ ...s })) })) }
@@ -199,12 +200,14 @@ function exCard(e, i) {
       <span class="chev">${open ? '▴' : '▾'}</span>
       <span class="esum">${e.sets.length ? esc(L.fmtSets(e.sets)) : '未記録'} <span class="range">・ ${rangeText(x)}×${x.sets}</span></span>
     </button>`;
-  if (!open) return `<div class="ex c ditem" data-i="${i}">${head}</div>`;
+  const sw = S.swipeUid === e.uid ? ' swiped' : '';
+  const del = `<button class="swipe-del" data-act="dayDel" data-i="${i}" aria-label="この種目を外す">外す</button>`;
+  if (!open) return `<div class="ex c ditem${sw}" data-i="${i}">${head}${del}</div>`;
   const h = L.historyOf(DAYS, e.id, S.day.date, 3);
   const sugg = L.suggest(x, h[0]);
   return `
-  <div class="ex c open ditem" data-i="${i}">
-    ${head}
+  <div class="ex c open ditem${sw}" data-i="${i}">
+    ${head}${del}
     <details class="hist">
       <summary><span class="sugg">${sugg.text}</span>${h.length ? `<span class="pv1"> ｜ 前回 ${esc(L.fmtHist(h[0]))}</span><span class="more" aria-label="直近3回を開く">▾</span>` : ''}</summary>
       ${h.length ? `<div class="hist-list">${h.map(r => `<div>${esc(L.fmtHist(r))}</div>`).join('')}</div>` : ''}
@@ -772,7 +775,7 @@ document.addEventListener('click', ev => {
     }
     case 'dayDel': {
       const e = D.ex[i];
-      const go = () => { D.ex.splice(i, 1); saveDay(); closeSheet(); rerender(); };
+      const go = () => { D.ex.splice(i, 1); S.swipeUid = null; saveDay(); closeSheet(); rerender(); };
       if (e.sets.length) confirmSheet('「' + esc(EX[e.id].name) + '」の' + e.sets.length + 'セットの記録も、この日の記録から消えます。', '外す', go);
       else go();
       return;
@@ -852,6 +855,45 @@ document.addEventListener('click', ev => {
   }
   render(); S.keepScroll = false;
 });
+
+/* 日別画面: 日付の帯を左右スワイプで前後の日へ。種目カードを左スワイプで「外す」を出す（右スワイプで戻す） */
+const DSW = { t: null, x: 0, y: 0, card: null };
+document.addEventListener('touchstart', e => {
+  DSW.t = null;
+  if (e.touches.length !== 1 || !S.day || e.target.closest('input, #sheet-root')) return;
+  const head = e.target.closest('.day-head'), card = e.target.closest('.ex.ditem');
+  if (!head && !card) return;
+  DSW.t = head ? 'head' : 'card'; DSW.card = card;
+  DSW.x = e.touches[0].clientX; DSW.y = e.touches[0].clientY;
+}, { passive: true });
+document.addEventListener('touchmove', e => {
+  // 横に動かしているときは、長押しの並べ替えを始めない
+  if (DSW.t !== 'card' || DR.on) return;
+  const p = e.touches[0], dx = p.clientX - DSW.x, dy = p.clientY - DSW.y;
+  if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy)) { clearTimeout(DR.timer); DR.pending = null; }
+}, { passive: true });
+document.addEventListener('touchend', e => {
+  const t = DSW.t; DSW.t = null;
+  if (!t || DR.on || !S.day) return;
+  const p = e.changedTouches[0], dir = L.swipeDir(p.clientX - DSW.x, p.clientY - DSW.y);
+  if (!dir) return;
+  if (t === 'head') {
+    const date = L.addDays(S.day.date, dir);
+    openDay(date, date === todayKey() ? pickedMenu() : null);
+    return;
+  }
+  const e0 = S.day.ex[+DSW.card.dataset.i];
+  if (!e0) return;
+  if (dir === 1 && S.swipeUid !== e0.uid) { S.swipeUid = e0.uid; rerender(); }
+  else if (dir === -1 && S.swipeUid === e0.uid) { S.swipeUid = null; rerender(); }
+});
+// 「外す」が出ているときに、ほかをタップしたら閉じる（カードのタップは、閉じるだけにする）
+document.addEventListener('click', e => {
+  if (S.swipeUid == null || e.target.closest('.swipe-del')) return;
+  S.swipeUid = null;
+  if (e.target.closest('.ex.ditem')) { e.stopPropagation(); e.preventDefault(); }
+  rerender();
+}, true);
 
 /* カレンダー: 左右スワイプで月を移動 */
 const SWIPE = { on: false, x: 0, y: 0, at: 0 };

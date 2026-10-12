@@ -543,3 +543,14 @@ button.pgh { width: 100%; text-align: left; }
 .figure svg { width: 100%; max-width: 420px; }
 .figure text { fill: var(--sub); font-size: 12px; font-weight: 600; text-anchor: middle; stroke: none; }
 details.hist .more { font-size: 13px; padding-left: 6px; }
+
+/* 日別: 左スワイプで「外す」 */
+.dlist[data-list=day] { overflow-x: clip; }
+.ex.c { transition: transform .18s ease; }
+.ex.c.dragging { transition: none; }
+.swipe-del {
+  position: absolute; top: 0; bottom: 0; right: -92px; width: 84px; border-radius: 16px;
+  background: var(--danger); color: #fff; font-weight: 800; font-size: 15px;
+  display: flex; align-items: center; justify-content: center;
+}
+.ex.c.swiped { transform: translateX(-92px); }
