@@ -1,7 +1,7 @@
 'use strict';
 /* 画面と操作。ロジックは logic.js（純関数）、保存は db.js、人体図は figure.js、並べ替えは drag.js、タイマーは timer.js。 */
 
-const BUILD = 'p2-1015-b'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
+const BUILD = 'p2-1015-c'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
 const L = Logic;
 const MUSCLES = L.MUSCLES;
 const CATS = L.CATS;
@@ -270,7 +270,7 @@ function viewBody() {
     <div class="legend">
       <span><i class="lv0"></i>0</span>
       <span><i class="lv1"></i>1〜3</span>
-      <span><i class="lv2"></i>4〜5</span>
+      <span><i class="lv2 t2"></i>4〜5</span>
       <span><i class="lv2 t3"></i>6〜7</span>
       <span><i class="lv2 t4"></i>8〜9</span>
       <span><i class="lv3"></i>目標到達</span>

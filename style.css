@@ -237,7 +237,7 @@ details.memo p { margin: 4px 0 0; font-size: 14px; background: var(--card2); bor
 .bar { height: 8px; border-radius: 4px; background: var(--card2); margin: 6px 0 4px; overflow: hidden; }
 .bar > div { height: 100%; border-radius: 4px; }
 .lv0 { background: var(--lv0); } .lv1 { background: var(--lv1); } .lv2 { background: var(--lv2); } .lv3 { background: var(--lv3); }
-.lv2.t3 { background: color-mix(in srgb, var(--lv3) 33%, var(--lv2)); } .lv2.t4 { background: color-mix(in srgb, var(--lv3) 66%, var(--lv2)); }
+.lv2.t2 { background: color-mix(in srgb, var(--lv2) 50%, var(--lv1)); } .lv2.t4 { background: color-mix(in srgb, var(--lv3) 50%, var(--lv2)); }
 /* 目標到達の棒は、光がゆっくり流れる */
 .bar > div.lv3 { background: linear-gradient(100deg, transparent 35%, rgba(255,255,255,.55) 50%, transparent 65%) 150% 0 / 200% 100% no-repeat, var(--lv3); animation: sheen 2.8s linear infinite; }
 @keyframes sheen { to { background-position: -50% 0; } }
