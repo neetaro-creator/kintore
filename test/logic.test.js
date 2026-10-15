@@ -242,6 +242,12 @@ test('色分け: 4未満 / 4〜目標未満 / 目標以上 の3段階（0は実�
   assert.equal(L.level(10, 10), 3);
   assert.equal(L.level(6, 6), 3);
 });
+test('人体図の細かい段階: 0 / 1〜3 / 4〜5 / 6〜7 / 8〜9 / 目標到達', () => {
+  const t = n => L.tier(n, 10);
+  assert.deepEqual([0, 3.5, 4, 5.5, 6, 7.5, 8, 9.5, 10, 12].map(t), [0, 1, 2, 2, 3, 3, 4, 4, 5, 5]);
+  assert.equal(L.tier(6, 6), 5);   // 目標が小さい部位は、目標に着いた時点で到達
+  assert.equal(L.tier(4.5, 6), 2);
+});
 test('色分けの表示名', () => {
   assert.equal(L.levelLabel(0, 10), '最小有効量未満');
   assert.equal(L.levelLabel(4, 10), '中間');

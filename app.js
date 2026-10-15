@@ -1,7 +1,7 @@
 'use strict';
 /* 画面と操作。ロジックは logic.js（純関数）、保存は db.js、人体図は figure.js、並べ替えは drag.js、タイマーは timer.js。 */
 
-const BUILD = 'p2-1015-a'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
+const BUILD = 'p2-1015-b'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
 const L = Logic;
 const MUSCLES = L.MUSCLES;
 const CATS = L.CATS;
@@ -268,10 +268,12 @@ function viewBody() {
   return `
     <div class="figure" id="fig">${figureSvg()}</div>
     <div class="legend">
-      <span><i style="background:var(--lv0)"></i>0セット</span>
-      <span><i style="background:var(--lv1)"></i>1〜3</span>
-      <span><i style="background:var(--lv2)"></i>4〜9</span>
-      <span><i style="background:var(--lv3)"></i>目標に到達</span>
+      <span><i class="lv0"></i>0</span>
+      <span><i class="lv1"></i>1〜3</span>
+      <span><i class="lv2"></i>4〜5</span>
+      <span><i class="lv2 t3"></i>6〜7</span>
+      <span><i class="lv2 t4"></i>8〜9</span>
+      <span><i class="lv3"></i>目標到達</span>
     </div>
     <div style="height:14px"></div>
     ${detail}
@@ -287,8 +289,8 @@ function viewBody() {
 function mrow(m, n, tgt) {
   return `<div class="mrow">
     <div class="t"><b>${m}</b><span class="n">${fmtKg(n)} <i>/ ${tgt} セット</i></span></div>
-    <div class="bar"><div class="lv${L.level(n, tgt)}" style="width:${Math.min(100, (n / tgt) * 100)}%"></div></div>
-    <div class="lbl">${L.levelLabel(n, tgt)}</div>
+    <div class="bar"><div class="lv${L.level(n, tgt)} t${L.tier(n, tgt)}" style="width:${Math.min(100, (n / tgt) * 100)}%"></div></div>
+    <div class="lbl">${L.levelLabel(n, tgt)}${L.level(n, tgt) === 3 ? ' ✓' : ''}</div>
   </div>`;
 }
 
@@ -338,7 +340,7 @@ function viewMenu() {
       <div class="sub" style="margin-bottom:6px;font-size:12px">${planNote()}</div>
       ${planRows.map(m => {
         const n = pl[m], t = S.cfg.target[m];
-        return `<div class="prow"><span class="pn">${m}</span><span class="pbar"><i class="lv${L.level(n, t)}" style="width:${Math.min(100, n / t * 100)}%"></i></span><span class="pv num">${fmtKg(Math.round(n * 10) / 10)}<small>/${t}</small></span></div>`;
+        return `<div class="prow"><span class="pn">${m}</span><span class="pbar"><i class="lv${L.level(n, t)} t${L.tier(n, t)}" style="width:${Math.min(100, n / t * 100)}%"></i></span><span class="pv num">${fmtKg(Math.round(n * 10) / 10)}<small>/${t}</small></span></div>`;
       }).join('')}
     </div>` : ''}`;
 }

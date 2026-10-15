@@ -1,7 +1,7 @@
 // オフライン用の Service Worker。
 // アプリ本体は、版ごとのキャッシュにまとめて入れ、起動はキャッシュから行う（電波が弱くても待たない）。
 // 更新のたびに CACHE を上げる（app.js の BUILD と同じ値）。新しい版は、全部そろってから切り替わる。
-const CACHE = 'kintore-p2-1015-a';
+const CACHE = 'kintore-p2-1015-b';
 const FILES = ['./', 'index.html', 'style.css', 'logic.js', 'db.js', 'presets.js', 'app.js', 'figure.js', 'drag.js', 'timer.js', 'manifest.json', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {

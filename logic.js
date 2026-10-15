@@ -154,6 +154,13 @@
     if (n >= target) return 3;
     return n >= 4 ? 2 : 1;
   }
+  // 人体図の色分け用に、中間（4以上〜目標未満）を細かく分けた段階。0: 0、1: 1〜3、2: 4〜5、3: 6〜7、4: 8〜9、5: 目標到達
+  function tier(n, target) {
+    const l = level(n, target);
+    if (l === 3) return 5;
+    if (l < 2) return l;
+    return n >= 8 ? 4 : n >= 6 ? 3 : 2;
+  }
   const levelLabel = (n, target) => ['最小有効量未満', '最小有効量未満', '中間', '目標到達'][level(n, target)];
 
   /* ---------- 4.7 コピー ---------- */
@@ -359,7 +366,7 @@
     e1rm, rmShown,
     performedMenus, lastPerformed, recommend,
     historyOf, fmtSets, fmtHist, suggest, nextSet,
-    weeklyActual, targetMuscles, weeklyPlan, level, levelLabel,
+    weeklyActual, targetMuscles, weeklyPlan, level, tier, levelLabel,
     copyDay, copyExercise, restFor,
     dayTotals, doneDates, usage, lastDoneByMuscle, incPercent, incOutOfRange, backupDue,
     presetExercise, materialize,

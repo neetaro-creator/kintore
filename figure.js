@@ -59,23 +59,33 @@ const FIG = {
   },
 };
 const FIG_Y = 0.92;
+// 色分けの段階（L.tier）→ グラデーション番号。5・6 は、中間色（g2）と到達色（g3）の間を混ぜたもの
+const TIER_GRAD = [0, 1, 2, 5, 6, 3];
 const MIRROR = 'transform="translate(240 0) scale(-1 1)"';
 function paths(list) {
   return list.map(p => `<path d="${p.d}"/>` + (p.m ? `<path d="${p.d}" ${MIRROR}/>` : '')).join('');
 }
 // 片面ぶん。設定で非表示にした部位は、色を付けず、タップもできない
 function figureSide(side, act) {
-  const f = FIG[side];
+  const f = FIG[side], done = [];
   const ms = Object.entries(f.muscles).map(([name, list]) => {
     if (S.cfg.hide[name]) return `<g class="neutral">${paths(list)}</g>`;
-    const lv = L.level(act[name], S.cfg.target[name]);
-    return `<g data-m="${name}" class="${S.muscle === name ? 'sel' : ''}" style="fill:url(#g${lv})">${paths(list)}</g>`;
+    const t = L.tier(act[name], S.cfg.target[name]);
+    if (t === 5) done.push(list);
+    return `<g data-m="${name}" class="${S.muscle === name ? 'sel' : ''}" style="fill:url(#g${TIER_GRAD[t]})">${paths(list)}</g>`;
   }).join('');
-  return `<g class="neutral">${paths(f.neutral)}</g>${ms}<g class="lines">${paths(f.lines)}</g>`;
+  // 目標に到達した部位は、輪郭をぼかして光らせる（ゆっくり明滅）
+  const halo = done.length ? `<g class="halo" filter="url(#halo)">${done.map(paths).join('')}</g>` : '';
+  return `<g class="neutral">${paths(f.neutral)}</g>${ms}${halo}<g class="lines">${paths(f.lines)}</g>`;
 }
 function figureSvg() {
   const act = actual();
-  const defs = '<defs>' + [0, 1, 2, 3, 4].map(i => `<linearGradient id="g${i}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--g${i}a)"/><stop offset="1" style="stop-color:var(--g${i}b)"/></linearGradient>`).join('') + '</defs>';
+  const stops = (a, b) => `<stop offset="0" style="stop-color:${a}"/><stop offset="1" style="stop-color:${b}"/>`;
+  const mix = (v, k) => `color-mix(in srgb, var(--g3${v}) ${k}%, var(--g2${v}))`;
+  const grad = (id, a, b) => `<linearGradient id="g${id}" x1="0" y1="0" x2="0" y2="1">${stops(a, b)}</linearGradient>`;
+  const defs = '<defs>' + [0, 1, 2, 3, 4].map(i => grad(i, `var(--g${i}a)`, `var(--g${i}b)`)).join('')
+    + grad(5, mix('a', 33), mix('b', 33)) + grad(6, mix('a', 66), mix('b', 66))
+    + '<filter id="halo" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.6"/></filter></defs>';
   // 縦を少し詰めて描く（FIG_Y）。座標そのものは 240x420 のまま
   return `<svg viewBox="34 0 344 ${Math.round(412 * FIG_Y) + 24}" role="img" aria-label="前面と背面の人体図">${defs}
     <g transform="scale(1 ${FIG_Y})">${figureSide('front', act)}</g><g transform="translate(172 0) scale(1 ${FIG_Y})">${figureSide('back', act)}</g>
