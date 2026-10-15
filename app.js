@@ -1,7 +1,7 @@
 'use strict';
 /* 画面と操作。ロジックは logic.js（純関数）、保存は db.js、人体図は figure.js、並べ替えは drag.js、タイマーは timer.js。 */
 
-const BUILD = 'p2-1012-a'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
+const BUILD = 'p2-1015-a'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
 const L = Logic;
 const MUSCLES = L.MUSCLES;
 const CATS = L.CATS;
@@ -165,6 +165,7 @@ function openDay(date, menu) {
   S.keepScroll = false; render(); $('#view').scrollTop = 0;
 }
 function openFirstUnfinished() {
+  if (S.day.date !== todayKey()) { S.dayOpen = null; return; }   // 過去の日は全種目を閉じて開く
   const e = S.day.ex.find(x => x.sets.length < EX[x.id].sets) || S.day.ex[0];
   S.dayOpen = e ? e.uid : null;
 }
