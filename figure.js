@@ -83,8 +83,10 @@ function figureSvg() {
   const stops = (a, b) => `<stop offset="0" style="stop-color:${a}"/><stop offset="1" style="stop-color:${b}"/>`;
   const mix = (v, hi, lo) => `color-mix(in srgb, var(--g${hi}${v}) 50%, var(--g${lo}${v}))`;
   const grad = (id, a, b) => `<linearGradient id="g${id}" x1="0" y1="0" x2="0" y2="1">${stops(a, b)}</linearGradient>`;
-  const defs = '<defs>' + [0, 1, 2, 3, 4].map(i => grad(i, `var(--g${i}a)`, `var(--g${i}b)`)).join('')
-    + grad(5, mix('a', 2, 1), mix('b', 2, 1)) + grad(6, mix('a', 3, 2), mix('b', 3, 2))
+  // 色分けの段階が見分けやすいよう、陰影は元の3分の1に弱める（上下の色を中間色へ寄せる）。人体の地の色（g4）は元のまま
+  const soft = (id, a, b) => grad(id, `color-mix(in srgb, ${a} 67%, ${b})`, `color-mix(in srgb, ${a} 33%, ${b})`);
+  const defs = '<defs>' + [0, 1, 2, 3].map(i => soft(i, `var(--g${i}a)`, `var(--g${i}b)`)).join('') + grad(4, 'var(--g4a)', 'var(--g4b)')
+    + soft(5, mix('a', 2, 1), mix('b', 2, 1)) + soft(6, mix('a', 3, 2), mix('b', 3, 2))
     + '<filter id="halo" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.6"/></filter></defs>';
   // 縦を少し詰めて描く（FIG_Y）。座標そのものは 240x420 のまま
   return `<svg viewBox="34 0 344 ${Math.round(412 * FIG_Y) + 24}" role="img" aria-label="前面と背面の人体図">${defs}
