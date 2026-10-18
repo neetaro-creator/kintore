@@ -1,7 +1,7 @@
 'use strict';
 /* 画面と操作。ロジックは logic.js（純関数）、保存は db.js、人体図は figure.js、並べ替えは drag.js、タイマーは timer.js。 */
 
-const BUILD = 'p2-1018-c'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
+const BUILD = 'p2-1018-d'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
 const L = Logic;
 const MUSCLES = L.MUSCLES;
 const CATS = L.CATS;
@@ -944,7 +944,7 @@ document.addEventListener('keydown', ev => {
 // [id, 表示名, 明るさ, テーマカラー(ステータスバー用)]
 const THEMES = [
   ['paper', 'ペーパー', 'light', '#f2f4f8'], ['mint', 'ミント', 'light', '#eef6f2'], ['sand', 'サンド', 'light', '#f7f2ea'], ['lavender', 'ラベンダー', 'light', '#f4f1fb'],
-  ['black', 'ブラック', 'dark', '#0d0d0f'], ['midnight', 'ミッドナイト', 'dark', '#0a1020'], ['forest', 'フォレスト', 'dark', '#0b130f'], ['graphite', 'グラファイト', 'dark', '#121110'],
+  ['black', 'ブラック', 'dark', '#0d0d0f'], ['midnight', 'ミッドナイト', 'dark', '#0a1020'], ['forest', 'フォレスト', 'dark', '#0b130f'], ['graphite', 'グラファイト', 'dark', '#121110'], ['comet', '赤い彗星', 'dark', '#0f0708'],
 ];
 S.theme = document.documentElement.getAttribute('data-theme') || 'black';
 function applyTheme(id) {
