@@ -567,3 +567,7 @@ details.hist .more { font-size: 13px; padding-left: 6px; }
 .tap[data-m] { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .tap[data-m]:active { opacity: .7; }
 .tap[data-m].sel b:first-child { color: var(--accent, inherit); }
+.mlog { display: flex; gap: 8px; align-items: baseline; font-size: 13px; margin-top: 3px; }
+.mlog .d { color: var(--sub); min-width: 34px; font-variant-numeric: tabular-nums; }
+.mlog .mn { color: var(--sub); }
+.mlog .num { margin-left: auto; font-weight: 600; text-align: right; }

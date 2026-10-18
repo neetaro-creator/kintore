@@ -1,7 +1,7 @@
 'use strict';
 /* 画面と操作。ロジックは logic.js（純関数）、保存は db.js、人体図は figure.js、並べ替えは drag.js、タイマーは timer.js。 */
 
-const BUILD = 'p2-1018-a'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
+const BUILD = 'p2-1018-b'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
 const L = Logic;
 const MUSCLES = L.MUSCLES;
 const CATS = L.CATS;
@@ -258,7 +258,7 @@ function viewBody() {
     const rows = A.detail[sel];
     detail = `<div class="card" id="mdetail">
       <div class="row between"><div><h2 style="margin:0">${sel}</h2><div class="sub">内訳</div></div><span class="big num">${fmtKg(act[sel])}<span class="sub"> セット</span></span></div>
-      ${rows.length ? rows.map(r => `<div class="setrow"><div><div style="font-weight:700">${esc(EX[r.id].name)}</div><div class="sub">${r.sets}セット ・ ${r.coef === 1 ? '主働筋 ×1' : '補助筋 ×0.5'}</div></div><b class="num">${fmtKg(r.sets * r.coef)}</b></div>`).join('') : '<div class="empty">直近7日の記録はありません</div>'}
+      ${rows.length ? rows.map(r => `<div class="setrow"><div><div style="font-weight:700">${esc(EX[r.id].name)}</div><div class="sub">${r.sets}セット ・ ${r.coef === 1 ? '主働筋 ×1' : '補助筋 ×0.5'}</div>${r.log.slice().reverse().map(g => `<div class="mlog"><span class="d">${L.fmtMD(g.date)}</span><span class="mn">${esc(L.menuLabel(DAYS[g.date], S.menus) || 'メニューなし')}</span><span class="num">${L.fmtSets(g.sets)}</span></div>`).join('')}</div><b class="num">${fmtKg(r.sets * r.coef)}</b></div>`).join('') : '<div class="empty">直近7日の記録はありません</div>'}
     </div>`;
   }
   const visible = MUSCLES.filter(m => !S.cfg.hide[m]);

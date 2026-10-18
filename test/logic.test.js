@@ -212,8 +212,8 @@ test('週セット数: 代替種目は、実際にやった種目の部位で数
 test('週セット数: 部位ごとの内訳（種目、セット数、係数）を返す', () => {
   const days = daysMap(day('2026-10-09', [entry('row', one)]), day('2026-10-10', [entry('row', one), entry('curl', one)]));
   assert.deepEqual(L.weeklyActual(days, EXS, '2026-10-11').detail['上腕二頭'], [
-    { id: 'row', sets: 2, coef: 0.5 },
-    { id: 'curl', sets: 1, coef: 1 },
+    { id: 'row', sets: 2, coef: 0.5, log: [{ date: '2026-10-09', sets: one }, { date: '2026-10-10', sets: one }] },
+    { id: 'curl', sets: 1, coef: 1, log: [{ date: '2026-10-10', sets: one }] },
   ]);
 });
 test('目標を出す部位: 休止していないメニューに、主働筋の種目がある部位だけ', () => {

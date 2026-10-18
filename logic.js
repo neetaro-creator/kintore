@@ -108,22 +108,24 @@
 
   /* ---------- 4.6 部位別の週セット数 ---------- */
   const zeros = () => Object.fromEntries(MUSCLES.map(m => [m, 0]));
-  // 直近7日（今日を含む）の実績。totals: 部位→セット数、detail: 部位→[{ id, sets, coef }]
+  // 直近7日（今日を含む）の実績。totals: 部位→セット数、detail: 部位→[{ id, sets, coef, log: [{ date, sets }] }]（log は古い日から）
   function weeklyActual(days, exMap, today) {
     const from = addDays(today, -6);
     const totals = zeros(), detail = Object.fromEntries(MUSCLES.map(m => [m, []]));
-    const add = (muscle, id, n, coef) => {
+    const add = (muscle, id, n, coef, rec) => {
       totals[muscle] += n * coef;
-      const row = detail[muscle].find(x => x.id === id && x.coef === coef);
-      if (row) row.sets += n; else detail[muscle].push({ id, sets: n, coef });
+      let row = detail[muscle].find(x => x.id === id && x.coef === coef);
+      if (!row) detail[muscle].push(row = { id, sets: 0, coef, log: [] });
+      row.sets += n; row.log.push(rec);
     };
     sortedDates(days).forEach(d => {
       if (d < from || d > today) return;
       days[d].ex.forEach(e => {
         const x = exMap[e.id], n = e.sets.length;
         if (!x || !n) return;
-        add(x.main, x.id, n, 1);
-        x.aux.forEach(a => add(a, x.id, n, 0.5));
+        const rec = { date: d, sets: e.sets };
+        add(x.main, x.id, n, 1, rec);
+        x.aux.forEach(a => add(a, x.id, n, 0.5, rec));
       });
     });
     return { totals, detail };
