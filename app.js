@@ -1,7 +1,7 @@
 'use strict';
 /* 画面と操作。ロジックは logic.js（純関数）、保存は db.js、人体図は figure.js、並べ替えは drag.js、タイマーは timer.js。 */
 
-const BUILD = 'p2-1015-d'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
+const BUILD = 'p2-1018-a'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
 const L = Logic;
 const MUSCLES = L.MUSCLES;
 const CATS = L.CATS;
@@ -256,7 +256,7 @@ function viewBody() {
   let detail = '';
   if (sel) {
     const rows = A.detail[sel];
-    detail = `<div class="card">
+    detail = `<div class="card" id="mdetail">
       <div class="row between"><div><h2 style="margin:0">${sel}</h2><div class="sub">内訳</div></div><span class="big num">${fmtKg(act[sel])}<span class="sub"> セット</span></span></div>
       ${rows.length ? rows.map(r => `<div class="setrow"><div><div style="font-weight:700">${esc(EX[r.id].name)}</div><div class="sub">${r.sets}セット ・ ${r.coef === 1 ? '主働筋 ×1' : '補助筋 ×0.5'}</div></div><b class="num">${fmtKg(r.sets * r.coef)}</b></div>`).join('') : '<div class="empty">直近7日の記録はありません</div>'}
     </div>`;
@@ -277,17 +277,17 @@ function viewBody() {
     </div>
     <div style="height:14px"></div>
     ${detail}
-    <div class="foot-hint" style="padding:0 8px 10px"><b>直近7日（${range}）</b>の部位別セット数。明るいほど多い。タップで内訳。</div>
+    <div class="foot-hint" style="padding:0 8px 10px"><b>直近7日（${range}）</b>の部位別セット数。明るいほど多い。タップで内訳。下の一覧からも開けます。</div>
     <div class="card">
       <h2>部位ごとのセット数</h2>
       <div class="sub" style="margin:-6px 0 6px">直近7日 / 週の目標（目安）</div>
       ${withTarget.map(m => mrow(m, act[m], S.cfg.target[m])).join('') || (noTarget.length ? '' : '<div class="empty">メニューに種目を入れると、目標が出ます</div>')}
-      ${noTarget.length ? `<div class="sub" style="margin-top:8px">目標なし（メニューに種目がない部位）</div>` + noTarget.map(m => `<div class="setrow"><b>${m}</b><b class="num">${fmtKg(act[m])} <span class="sub">セット</span></b></div>`).join('') : ''}
+      ${noTarget.length ? `<div class="sub" style="margin-top:8px">目標なし（メニューに種目がない部位）</div>` + noTarget.map(m => `<div class="setrow tap ${sel === m ? 'sel' : ''}" data-m="${m}" role="button" tabindex="0"><b>${m}</b><b class="num">${fmtKg(act[m])} <span class="sub">セット</span></b></div>`).join('') : ''}
       <div class="note" style="margin-top:10px">主働筋は1セット、補助筋は0.5セットで計算。</div>
     </div>`;
 }
 function mrow(m, n, tgt) {
-  return `<div class="mrow">
+  return `<div class="mrow tap ${S.muscle === m ? 'sel' : ''}" data-m="${m}" role="button" tabindex="0">
     <div class="t"><b>${m}</b><span class="n">${fmtKg(n)} <i>/ ${tgt} セット</i></span></div>
     <div class="bar"><div class="lv${L.level(n, tgt)} t${L.tier(n, tgt)}" style="width:${Math.min(100, (n / tgt) * 100)}%"></div></div>
     <div class="lbl">${L.levelLabel(n, tgt)}${L.level(n, tgt) === 3 ? ' ✓' : ''}</div>
@@ -930,10 +930,16 @@ document.addEventListener('change', ev => {
 });
 
 document.addEventListener('click', ev => {
-  const g = ev.target.closest('#fig g[data-m]');
+  const g = ev.target.closest('#fig g[data-m], #view .tap[data-m]');
   if (!g) return;
   S.muscle = S.muscle === g.dataset.m ? null : g.dataset.m;
   rerender();
+  // 一覧から開いたときは、画面の上に出る内訳が見えるよう移動する
+  const d = !g.closest('#fig') && document.getElementById('mdetail');
+  if (d) d.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+});
+document.addEventListener('keydown', ev => {
+  if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches('.tap[data-m]')) { ev.preventDefault(); ev.target.click(); }
 });
 
 /* ========== カラーテーマ ========== */

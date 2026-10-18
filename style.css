@@ -562,3 +562,8 @@ details.hist .more { font-size: 13px; padding-left: 6px; }
   display: flex; align-items: center; justify-content: center;
 }
 .ex.c.swiped { transform: translateX(-92px); }
+
+/* 部位の一覧行：タップで内訳を開く */
+.tap[data-m] { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.tap[data-m]:active { opacity: .7; }
+.tap[data-m].sel b:first-child { color: var(--accent, inherit); }
