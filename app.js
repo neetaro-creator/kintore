@@ -1,7 +1,7 @@
 'use strict';
 /* 画面と操作。ロジックは logic.js（純関数）、保存は db.js、人体図は figure.js、並べ替えは drag.js、タイマーは timer.js。 */
 
-const BUILD = 'p2-1018-d'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
+const BUILD = 'p2-1018-e'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
 const L = Logic;
 const MUSCLES = L.MUSCLES;
 const CATS = L.CATS;
@@ -80,6 +80,15 @@ function render() {
 }
 function rerender() { S.keepScroll = true; render(); S.keepScroll = false; }
 
+// その日の呼び名。メニューに当てはまらない日（きままに1種目だけ等）は、やった種目名を並べる
+function dayLabel(day, none = 'メニューなし') {
+  const m = L.menuLabel(day, S.menus);
+  if (m) return m;
+  const names = [...new Set(day.ex.filter(e => e.sets.length && EX[e.id]).map(e => EX[e.id].name))];
+  if (!names.length) return none;
+  return names.slice(0, 2).join('・') + (names.length > 2 ? ` ほか${names.length - 2}` : '');
+}
+
 /* --- ホーム --- */
 function pickedMenu() {
   const ok = S.menus.filter(m => !m.paused && m.ex.length);
@@ -108,7 +117,7 @@ function viewHome() {
     const t = L.dayTotals(T);
     card = `
       <div class="sub">今日の記録</div>
-      <div class="rec-name">${esc(L.menuLabel(T, S.menus) || 'メニューなし')}</div>
+      <div class="rec-name">${esc(dayLabel(T))}</div>
       <div class="sub" style="margin-bottom:12px">${T.ex.length}種目 ・ ${t.sets}セット記録済み</div>
       <button class="btn primary block" data-act="todayOpen" style="min-height:56px;font-size:18px">今日の記録を開く</button>`;
   } else if (!S.menus.length && !Object.keys(DAYS).length) {
@@ -176,7 +185,7 @@ function viewDay() {
     <div class="day-head">
       <button class="back" data-act="back" aria-label="戻る">‹</button>
       <div class="grow">
-        <div class="row" style="gap:8px;align-items:baseline"><h1 style="margin:0;font-size:22px">${dateJa(D.date)}</h1><span class="sub">${esc(L.menuLabel(D, S.menus) || 'メニューなし')}</span></div>
+        <div class="row" style="gap:8px;align-items:baseline"><h1 style="margin:0;font-size:22px">${dateJa(D.date)}</h1><span class="sub">${esc(dayLabel(D))}</span></div>
         <div class="sumline num"><b>${t.ex}</b>種目 <b>${t.sets}</b>セット <b>${t.reps}</b>レップ</div>
       </div>
     </div>
@@ -257,7 +266,7 @@ function viewBody() {
     const rows = A.detail[m];
     return `<div class="card mdetail">
       <div class="row between"><div><h2 style="margin:0">${m}</h2><div class="sub">内訳</div></div><span class="big num">${fmtKg(act[m])}<span class="sub"> セット</span></span></div>
-      ${rows.length ? rows.map(r => `<div class="setrow"><div><div style="font-weight:700">${esc(EX[r.id].name)}</div><div class="sub">${r.sets}セット ・ ${r.coef === 1 ? '主働筋 ×1' : '補助筋 ×0.5'}</div>${r.log.slice().reverse().map(g => `<div class="mlog"><span class="d">${L.fmtMD(g.date)}</span><span class="mn">${esc(L.menuLabel(DAYS[g.date], S.menus) || 'メニューなし')}</span><span class="num">${L.fmtSets(g.sets)}</span></div>`).join('')}</div><b class="num">${fmtKg(r.sets * r.coef)}</b></div>`).join('') : '<div class="empty">直近7日の記録はありません</div>'}
+      ${rows.length ? rows.map(r => `<div class="setrow"><div><div style="font-weight:700">${esc(EX[r.id].name)}</div><div class="sub">${r.sets}セット ・ ${r.coef === 1 ? '主働筋 ×1' : '補助筋 ×0.5'}</div>${r.log.slice().reverse().map(g => `<div class="mlog"><span class="d">${L.fmtMD(g.date)}</span><span class="mn">${esc(dayLabel(DAYS[g.date]))}</span><span class="num">${L.fmtSets(g.sets)}</span></div>`).join('')}</div><b class="num">${fmtKg(r.sets * r.coef)}</b></div>`).join('') : '<div class="empty">直近7日の記録はありません</div>'}
     </div>`;
   };
   const under = m => S.rowMuscle === m ? detail(m) : '';
@@ -472,7 +481,7 @@ function copySheet(kind, i) {
   const dates = [...L.doneDates(DAYS)].filter(d => d < D.date).reverse().slice(0, 20);
   sheet(`<h2>過去の日をコピー（全種目）</h2>
     ${dates.length ? '<div class="sub" style="margin-bottom:6px">選んだ日の全種目を、この日の記録にコピーします（回数は元の値のまま）</div>' : '<div class="empty">この日より前の記録はありません</div>'}
-    ${dates.map(d => { const t = L.dayTotals(DAYS[d]); return `<button class="pick" data-act="copyPick" data-d="${d}"><span>${dateJa(d)} <span class="sub">${esc(L.menuLabel(DAYS[d], S.menus))}</span></span><span class="sub">${t.ex}種目 ${t.sets}セット</span></button>`; }).join('')}
+    ${dates.map(d => { const t = L.dayTotals(DAYS[d]); return `<button class="pick" data-act="copyPick" data-d="${d}"><span>${dateJa(d)} <span class="sub">${esc(dayLabel(DAYS[d], ''))}</span></span><span class="sub">${t.ex}種目 ${t.sets}セット</span></button>`; }).join('')}
     <button class="btn block ghost" data-act="close" style="margin-top:12px">やめる</button>`);
 }
 
