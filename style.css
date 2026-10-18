@@ -571,3 +571,4 @@ details.hist .more { font-size: 13px; padding-left: 6px; }
 .mlog .d { color: var(--sub); min-width: 34px; font-variant-numeric: tabular-nums; }
 .mlog .mn { color: var(--sub); }
 .mlog .num { margin-left: auto; font-weight: 600; text-align: right; }
+.card .mdetail { background: var(--accent-soft); padding: 10px 12px; border-radius: 12px; margin: 4px 0 10px; }
