@@ -555,20 +555,14 @@ test('スワイプの向き: 左へ払うと次の月、右へ払うと前の月
 });
 
 /* ---------- AI に貼るためのメニュー文章 ---------- */
-test('メニュー文章: 休止中は除き、種目・レンジ・週のセット数を含む', () => {
-  const bench = ex('ベンチ', { aux: ['上腕三頭'] }), row = ex('ロウ', { main: '背中', range: [10, 10] });
+test('メニュー文章: 休止中は除き、種目・レンジ×セット数・直近の記録を含む', () => {
+  const bench = ex('ベンチ'), row = ex('ロウ', { main: '背中', range: [10, 10] });
   const ms = [menu('A', ['ベンチ', 'ロウ'], { name: '胸の日' }), menu('B', ['ベンチ'], { name: '休止の日', paused: true })];
-  const cfg = { ...L.defaultSettings(), freq: 2 };
-  const t = L.menuText(ms, exMap(bench, row), cfg);
-  assert.match(t, /週2回/);
-  assert.match(t, /■ 胸の日/);
-  assert.doesNotMatch(t, /休止の日/);
-  assert.match(t, /・ベンチ（多）8-10回×3セット、主働: 胸、補助: 上腕三頭/);
-  assert.match(t, /・ロウ（多）10回×3セット/);
-  assert.match(t, /・胸: 6 \/ 10/);
-  assert.match(t, /・上腕三頭: 3 \/ 10/);
+  const days = daysMap(day('2026-10-01', [entry('ベンチ', [set(50, 10)])]), day('2026-10-10', [entry('ベンチ', [set(60, 10), set(60, 9), set(60, 8)])]));
+  assert.equal(L.menuText(ms, exMap(bench, row), days),
+    '■ 胸の日\n・ベンチ 8-10回×3セット　直近: 10/10 60kg 10/9/8\n・ロウ 10回×3セット　直近: 記録なし');
 });
 test('メニュー文章: 使えるメニューがなければ空文字', () => {
-  assert.equal(L.menuText([], {}, L.defaultSettings()), '');
-  assert.equal(L.menuText([menu('A', ['x'], { paused: true })], exMap(ex('x')), L.defaultSettings()), '');
+  assert.equal(L.menuText([], {}, {}), '');
+  assert.equal(L.menuText([menu('A', ['x'], { paused: true })], exMap(ex('x')), {}), '');
 });
