@@ -37,9 +37,13 @@
   function doneSlots(day) {
     return new Set(day.ex.filter(e => e.sets.length).map(e => e.orig || e.id));
   }
+  // 始めたメニューが半分ルールを満たす日は、そのメニューだけ。満たさない日（中断・入れ替え・メニューなし）は、種目の重なりで判定する
   function performedMenus(day, menus) {
     const done = doneSlots(day);
-    return menus.filter(m => m.ex.length && m.ex.filter(id => done.has(id)).length >= Math.ceil(m.ex.length / 2)).map(m => m.id);
+    const hit = m => m.ex.length && m.ex.filter(id => done.has(id)).length >= Math.ceil(m.ex.length / 2);
+    const own = menus.find(m => m.id === day.menuId);
+    if (own && hit(own)) return [own.id];
+    return menus.filter(hit).map(m => m.id);
   }
   function lastPerformed(days, menus) {
     const out = {};

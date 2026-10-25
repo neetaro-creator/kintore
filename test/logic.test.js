@@ -566,3 +566,27 @@ test('メニュー文章: 使えるメニューがなければ空文字', () => 
   assert.equal(L.menuText([], {}, {}), '');
   assert.equal(L.menuText([menu('A', ['x'], { paused: true })], exMap(ex('x')), {}), '');
 });
+
+/* ---------- 実施判定: 始めたメニューを優先 ---------- */
+const ovl = () => ({
+  A: menu('A', ['a', 'b', 'c', 'd']), B: menu('B', ['a', 'b', 'c', 'e']),
+});
+const done = (...ids) => ids.map(i => entry(i, one));
+test('実施判定: 種目が重なっても、始めたメニューだけが実施済みになる', () => {
+  const { A, B } = ovl();
+  assert.deepEqual(L.performedMenus(day('2026-10-23', done('a', 'b', 'c', 'e'), 'B'), [A, B]), ['B']);
+});
+test('実施判定: 始めたメニューが半分に届かず別の内容に入れ替えたら、重なりで判定', () => {
+  const { A, B } = ovl();
+  assert.deepEqual(L.performedMenus(day('2026-10-23', done('a', 'e'), 'A'), [A, B]), ['B']);
+  assert.deepEqual(L.performedMenus(day('2026-10-23', done('x', 'y'), 'A'), [A, B]), []);
+});
+test('実施判定: メニューなしの日は重なりで判定する', () => {
+  const { A, B } = ovl();
+  assert.deepEqual(L.performedMenus(day('2026-10-23', done('a', 'b', 'c')), [A, B]), ['A', 'B']);
+});
+test('おすすめ: 重なる種目があっても、実施していない側のメニューが選ばれる', () => {
+  const { A, B } = ovl();
+  const days = daysMap(day('2026-10-19', done('a', 'b', 'c', 'd'), 'A'), day('2026-10-23', done('a', 'b', 'c', 'e'), 'B'));
+  assert.equal(L.recommend([A, B], days, 1), 'A');
+});
