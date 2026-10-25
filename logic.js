@@ -362,6 +362,32 @@
     return rows.map(r => r.map(csvCell).join(',')).join('\n');
   }
 
+  /* ---------- AI に評価してもらうための、メニューの文章化 ---------- */
+  // 休止していないメニューを、種目・レンジ・セット数・増量幅・週の部位別セット数つきで文章にする
+  function menuText(menus, exMap, cfg) {
+    const act = menus.filter(m => !m.paused && m.ex.some(id => exMap[id]));
+    if (!act.length) return '';
+    const rng = e => (e.range[0] === e.range[1] ? String(e.range[0]) : e.range.join('-'));
+    const lines = [`筋トレのメニューです。週${cfg.freq}回、下のメニューを順番に回します。`, '評価と改善点を教えてください。', ''];
+    act.forEach(m => {
+      lines.push(`■ ${m.name}`);
+      m.ex.forEach(id => {
+        const e = exMap[id];
+        if (!e) return;
+        const aux = e.aux.length ? `、補助: ${e.aux.join('・')}` : '';
+        lines.push(`・${e.name}（${e.cat}）${rng(e)}回×${e.sets}セット、主働: ${e.main}${aux}`);
+      });
+      lines.push('');
+    });
+    const plan = weeklyPlan(menus, exMap, cfg.freq);
+    const rows = MUSCLES.filter(m => plan[m] > 0 && !(cfg.hide && cfg.hide[m]));
+    if (rows.length) {
+      lines.push('週のセット数（主働筋1、補助筋0.5で換算）と目標:');
+      rows.forEach(m => lines.push(`・${m}: ${fmt1(plan[m])} / ${cfg.target[m]}`));
+    }
+    return lines.join('\n').trim();
+  }
+
   const api = {
     MUSCLES, CATS,
     dateKey, parseKey, addDays, diffDays, shiftMonth, swipeDir, fmtKg, fmt1, fmtMD,
@@ -369,7 +395,7 @@
     performedMenus, lastPerformed, recommend,
     historyOf, fmtSets, fmtHist, suggest, nextSet,
     weeklyActual, targetMuscles, weeklyPlan, level, tier, levelLabel,
-    copyDay, copyExercise, restFor,
+    copyDay, copyExercise, restFor, menuText,
     dayTotals, doneDates, usage, lastDoneByMuscle, incPercent, incOutOfRange, backupDue,
     presetExercise, materialize,
     defaultSettings, fromBackup, parseBackup, makeBackup, menuLabel, toCsv,

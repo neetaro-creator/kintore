@@ -553,3 +553,22 @@ test('スワイプの向き: 左へ払うと次の月、右へ払うと前の月
   assert.equal(L.swipeDir(-30, 0), 0);
   assert.equal(L.swipeDir(-80, 70), 0);
 });
+
+/* ---------- AI に貼るためのメニュー文章 ---------- */
+test('メニュー文章: 休止中は除き、種目・レンジ・週のセット数を含む', () => {
+  const bench = ex('ベンチ', { aux: ['上腕三頭'] }), row = ex('ロウ', { main: '背中', range: [10, 10] });
+  const ms = [menu('A', ['ベンチ', 'ロウ'], { name: '胸の日' }), menu('B', ['ベンチ'], { name: '休止の日', paused: true })];
+  const cfg = { ...L.defaultSettings(), freq: 2 };
+  const t = L.menuText(ms, exMap(bench, row), cfg);
+  assert.match(t, /週2回/);
+  assert.match(t, /■ 胸の日/);
+  assert.doesNotMatch(t, /休止の日/);
+  assert.match(t, /・ベンチ（多）8-10回×3セット、主働: 胸、補助: 上腕三頭/);
+  assert.match(t, /・ロウ（多）10回×3セット/);
+  assert.match(t, /・胸: 6 \/ 10/);
+  assert.match(t, /・上腕三頭: 3 \/ 10/);
+});
+test('メニュー文章: 使えるメニューがなければ空文字', () => {
+  assert.equal(L.menuText([], {}, L.defaultSettings()), '');
+  assert.equal(L.menuText([menu('A', ['x'], { paused: true })], exMap(ex('x')), L.defaultSettings()), '');
+});
