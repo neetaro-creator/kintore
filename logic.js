@@ -363,13 +363,13 @@
   }
 
   /* ---------- AI に貼るための、メニューの文章化 ---------- */
-  // 休止していないメニューを、種目・レンジ×セット数・直近の記録つきで文章にする
+  // 休止していないメニューを、種目・レンジ×セット数・直近3回の記録つきで文章にする
   function menuText(menus, exMap, days) {
     const act = menus.filter(m => !m.paused && m.ex.some(id => exMap[id]));
     const rng = e => (e.range[0] === e.range[1] ? String(e.range[0]) : e.range.join('-'));
     return act.map(m => [`■ ${m.name}`, ...m.ex.filter(id => exMap[id]).map(id => {
-      const e = exMap[id], last = historyOf(days, id, null, 1)[0];
-      return `・${e.name} ${rng(e)}回×${e.sets}セット　直近: ${last ? fmtHist(last) : '記録なし'}`;
+      const e = exMap[id], h = historyOf(days, id, null, 3);
+      return `・${e.name} ${rng(e)}回×${e.sets}セット　直近: ${h.length ? h.map(fmtHist).join(' ／ ') : '記録なし'}`;
     })].join('\n')).join('\n\n');
   }
 
