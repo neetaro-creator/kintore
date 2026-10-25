@@ -559,12 +559,12 @@ test('メニュー文章: 休止中は除き、種目・レンジ×セット数�
   const bench = ex('ベンチ'), row = ex('ロウ', { main: '背中', range: [10, 10] });
   const ms = [menu('A', ['ベンチ', 'ロウ'], { name: '胸の日' }), menu('B', ['ベンチ'], { name: '休止の日', paused: true })];
   const days = daysMap(day('2026-10-01', [entry('ベンチ', [set(50, 10)])]), day('2026-10-10', [entry('ベンチ', [set(60, 10), set(60, 9), set(60, 8)])]), day('2026-09-20', [entry('ベンチ', [set(45, 10)])]), day('2026-09-10', [entry('ベンチ', [set(40, 10)])]));
-  assert.equal(L.menuText(ms, exMap(bench, row), days),
-    '■ 胸の日\n・ベンチ 8-10回×3セット　直近: 10/10 60kg 10/9/8 ／ 10/1 50kg 10 ／ 9/20 45kg 10\n・ロウ 10回×3セット　直近: 記録なし');
+  assert.equal(L.menuText(ms, exMap(bench, row), days, 3),
+    '週3回\n\n■ 胸の日\n・ベンチ 8-10回×3セット　直近: 10/10 60kg 10/9/8 ／ 10/1 50kg 10 ／ 9/20 45kg 10\n・ロウ 10回×3セット　直近: 記録なし');
 });
 test('メニュー文章: 使えるメニューがなければ空文字', () => {
-  assert.equal(L.menuText([], {}, {}), '');
-  assert.equal(L.menuText([menu('A', ['x'], { paused: true })], exMap(ex('x')), {}), '');
+  assert.equal(L.menuText([], {}, {}, 3), '');
+  assert.equal(L.menuText([menu('A', ['x'], { paused: true })], exMap(ex('x')), {}, 3), '');
 });
 
 /* ---------- 実施判定: 始めたメニューを優先 ---------- */

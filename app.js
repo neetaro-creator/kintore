@@ -1,7 +1,7 @@
 'use strict';
 /* 画面と操作。ロジックは logic.js（純関数）、保存は db.js、人体図は figure.js、並べ替えは drag.js、タイマーは timer.js。 */
 
-const BUILD = 'p2-1025-c'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
+const BUILD = 'p2-1025-d'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
 const L = Logic;
 const MUSCLES = L.MUSCLES;
 const CATS = L.CATS;
@@ -355,7 +355,7 @@ function viewMenu() {
     </div>
     ${S.menus.length ? '<div class="foot-hint" style="padding:0 8px 10px">長押しで並べ替え。種目をタップで編集</div>' : ''}
     <button class="btn block ghost small" data-act="menuNew" style="margin-bottom:12px">＋ メニューを追加</button>
-    ${L.menuText(S.menus, EX, DAYS) ? '<button class="btn block ghost small" data-act="menuCopy" style="margin-bottom:12px">メニューを文章でコピー（AIに貼る用）</button>' : ''}
+    ${L.menuText(S.menus, EX, DAYS, S.cfg.freq) ? '<button class="btn block ghost small" data-act="menuCopy" style="margin-bottom:12px">メニューを文章でコピー（AIに貼る用）</button>' : ''}
     ${planRows.length ? `<div class="card c">
       <h2 style="font-size:17px;margin-bottom:2px">週のセット数（予定）</h2>
       <div class="sub" style="margin-bottom:6px;font-size:12px">${planNote()}</div>
@@ -810,7 +810,7 @@ document.addEventListener('click', ev => {
     case 'openMenu': S.openMenu = S.openMenu === el.dataset.id ? null : el.dataset.id; break;
     case 'pause': { const m = S.menus.find(x => x.id === el.dataset.id); m.paused = !m.paused; saveMenus(); break; }
     case 'menuDelEx': S.menus[+el.dataset.mi].ex.splice(+el.dataset.k, 1); saveMenus(); break;
-    case 'menuCopy': copyText(L.menuText(S.menus, EX, DAYS)); return;
+    case 'menuCopy': copyText(L.menuText(S.menus, EX, DAYS, S.cfg.freq)); return;
     case 'menuNew': textSheet('メニューを追加', '', 'new'); return;
     case 'startMenu': S.tab = 'menu'; S.keepScroll = false; render(); textSheet('最初のメニューを作る', '', 'new'); return;
     case 'menuRename': textSheet('名前を変更', S.menus.find(x => x.id === el.dataset.id).name, 'rename', el.dataset.id); return;
