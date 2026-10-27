@@ -14,7 +14,7 @@
   window.__themeBoot = { id: id, light: !!light[id], color: light[id] || dark[id] };
 })();
 </script>
-<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -39,10 +39,10 @@
 <div id="app">
   <main id="view"></main>
   <nav id="tabs">
-    <button data-act="tab" data-t="home">ホーム</button>
-    <button data-act="tab" data-t="body">部位</button>
-    <button data-act="tab" data-t="menu">メニュー</button>
-    <button data-act="tab" data-t="settings">設定</button>
+    <button data-act="tab" data-t="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z"/></svg><span>ホーム</span></button>
+    <button data-act="tab" data-t="body"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7v10M4 9.5v5M17 7v10M20 9.5v5M7 12h10"/></svg><span>部位</span></button>
+    <button data-act="tab" data-t="menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h9"/></svg><span>メニュー</span></button>
+    <button data-act="tab" data-t="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6l2.1 2.1m0-12.8l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg><span>設定</span></button>
   </nav>
 </div>
 <div id="sheet-root"></div>

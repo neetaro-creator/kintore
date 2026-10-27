@@ -16,6 +16,7 @@ function dragActivate(item, y) {
   const list = item.parentElement;
   DR.items = [...list.children].filter(c => c.classList.contains('ditem'));
   if (DR.items.length < 2) { DR.pending = null; return; }
+  try { localStorage.setItem('kintore-dragged', '1'); } catch (e) { /* 保存できなくても動く */ }
   const v = $('#view');
   DR.on = true; DR.item = item; DR.list = list; DR.pending = null;
   DR.from = DR.to = DR.items.indexOf(item);

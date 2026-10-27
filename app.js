@@ -1,7 +1,7 @@
 'use strict';
 /* 画面と操作。ロジックは logic.js（純関数）、保存は db.js、人体図は figure.js、並べ替えは drag.js、タイマーは timer.js。 */
 
-const BUILD = 'p2-1025-e'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
+const BUILD = 'p2-1027-a'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
 const L = Logic;
 const MUSCLES = L.MUSCLES;
 const CATS = L.CATS;
@@ -29,6 +29,8 @@ const S = {
 };
 
 /* ========== ユーティリティ ========== */
+// 並べ替えの説明は、一度でも並べ替えたら出さない（drag.js が印を付ける）
+const dragHint = () => { try { return !localStorage.getItem('kintore-dragged'); } catch (e) { return true; } };
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const pad = n => String(n).padStart(2, '0');
@@ -110,6 +112,7 @@ function viewHome() {
   const tail = (7 - ((startDow + days) % 7)) % 7;
   for (let i = 1; i <= tail; i++) cells += cell(new Date(y, m + 1, i), true);
 
+  const firstRun = !S.menus.length && !Object.keys(DAYS).length;
   const due = L.backupDue(S.cfg.lastBackup, [...done][0] || null, today);
   const T = DAYS[today];
   let card;
@@ -138,7 +141,7 @@ function viewHome() {
       ${rec ? `
       <div class="rec-name">${esc(rec.name)}</div>
       <div class="sub">${rec.ex.length}種目 ・ ${last ? `最終実施 ${ago}日前` : 'まだ実施なし'}</div>
-      <div class="chips">${chips.map(x => `<button class="chip ${x.id === rec.id ? 'on' : ''}" data-act="pick" data-id="${x.id}">${esc(x.name)}</button>`).join('')}</div>
+      ${chips.length > 1 ? `<div class="chips">${chips.map(x => `<button class="chip ${x.id === rec.id ? 'on' : ''}" data-act="pick" data-id="${x.id}">${esc(x.name)}</button>`).join('')}</div>` : '<div style="height:12px"></div>'}
       <button class="btn primary block" data-act="today" style="min-height:56px;font-size:18px">このメニューで始める</button>` : `
       <div class="rec-name" style="font-size:22px">すすめられるメニューがありません</div>
       <div class="sub" style="margin-bottom:12px">メニュータブで、種目の追加か休止の解除をしてください</div>`}
@@ -147,7 +150,8 @@ function viewHome() {
   return `
     ${S.storeError ? '<div class="banner">この画面では記録を保存できません（プライベートブラウズでは保存できません）。</div>' : ''}
     ${due ? '<div class="banner">バックアップを30日以上保存していません。設定から保存してください。</div>' : ''}
-    <div id="cal">
+    <div class="card">${card}</div>
+    ${firstRun ? '' : `<div id="cal" style="margin-top:14px">
     <div class="cal-head">
       <button data-act="cal" data-d="-1" aria-label="前の月">‹</button>
       <div class="ttl">${y}年${m + 1}月</div>
@@ -155,8 +159,7 @@ function viewHome() {
     </div>
     <div class="cal-week">${WD.map(w => `<div>${w}</div>`).join('')}</div>
     <div class="cal-grid">${cells}</div>
-    </div>
-    <div class="card" style="margin-top:14px">${card}</div>
+    </div>`}
     <button class="btn block" data-act="rm">RM計算</button>`;
 }
 
@@ -185,8 +188,8 @@ function viewDay() {
     <div class="day-head">
       <button class="back" data-act="back" aria-label="戻る">‹</button>
       <div class="grow">
-        <div class="row" style="gap:8px;align-items:baseline"><h1 style="margin:0;font-size:22px">${dateJa(D.date)}</h1><span class="sub">${esc(dayLabel(D))}</span></div>
-        <div class="sumline num"><b>${t.ex}</b>種目 <b>${t.sets}</b>セット <b>${t.reps}</b>レップ</div>
+        <div class="row" style="gap:0 8px;align-items:baseline;flex-wrap:wrap"><h1 style="margin:0;font-size:22px;white-space:nowrap">${dateJa(D.date)}</h1><span class="sub">${esc(dayLabel(D))}</span></div>
+        <div class="sumline num"><b>${t.ex}</b>/${D.ex.length}種目 <b>${t.sets}</b>セット <b>${t.reps}</b>レップ</div>
       </div>
     </div>
     ${D.ex.length ? '' : `<div class="card empty" style="padding:22px 16px">まだ種目がありません。<br>${menus.length ? 'メニューを選ぶか、' : ''}下の「＋ 種目を追加」から入れてください。
@@ -197,7 +200,7 @@ function viewDay() {
       <button class="btn ghost" data-act="copyDay">過去の日をコピー</button>
     </div>
     ${D.date !== todayKey() && t.sets ? `<button class="btn block ghost" data-act="copyToToday" style="margin-top:8px">この日の内容を今日にコピー</button>` : ''}
-    ${D.ex.length ? `<div class="hint" style="margin:10px 0 0;text-align:center">種目名を長押しして、ドラッグで並べ替え</div>` : ''}`;
+    ${D.ex.length > 1 && dragHint() ? `<div class="hint" style="margin:10px 0 0;text-align:center">種目名を長押しして、ドラッグで並べ替え</div>` : ''}`;
 }
 function exCard(e, i) {
   const x = EX[e.id], slot = e.orig ? EX[e.orig] : x;
@@ -353,7 +356,7 @@ function viewMenu() {
           </div>` : ''}
       </div>`).join('')}
     </div>
-    ${S.menus.length ? '<div class="foot-hint" style="padding:0 8px 10px">長押しで並べ替え。種目をタップで編集</div>' : ''}
+    ${S.menus.length && dragHint() ? '<div class="foot-hint" style="padding:0 8px 10px">長押しで並べ替え。種目をタップで編集</div>' : ''}
     <button class="btn block ghost small" data-act="menuNew" style="margin-bottom:12px">＋ メニューを追加</button>
     ${L.menuText(S.menus, EX, DAYS, S.cfg.freq) ? '<button class="btn block ghost small" data-act="menuCopy" style="margin-bottom:12px">メニューを文章でコピー（AIに貼る用）</button>' : ''}
     ${planRows.length ? `<div class="card c">
@@ -372,7 +375,15 @@ function viewSettings() {
   const lb = c.lastBackup ? `前回の保存: ${dateJa(c.lastBackup)}` : 'まだ保存していません';
   const prot = S.persisted == null ? '' : ` ・ 保存の保護: ${S.persisted ? '有効' : '未設定'}`;
   return `
-    ${themeCard()}
+    <div class="card">
+      <h2>データ</h2>
+      <div class="row" style="flex-wrap:wrap;gap:8px">
+        <button class="btn" data-act="backup" style="flex-basis:100%">バックアップを保存</button>
+        <button class="btn grow" data-act="restore">復元</button>
+        <button class="btn grow" data-act="csv">CSV書き出し</button>
+      </div>
+      <div class="note" style="margin-top:10px">${lb}。記録はこのiPhoneの中だけにあります。保存では「ファイルに保存」を選びます。iCloud Drive に置くと、iPhoneが壊れても残ります。</div>
+    </div>
     <div class="card">
       <h2>週の頻度</h2>
       <div class="setrow"><div>トレーニングする回数</div>${stepper('freq', c.freq, '回')}</div>
@@ -394,15 +405,7 @@ function viewSettings() {
       ${MUSCLES.map(m => `<div class="setrow"><div class="grow">${m}</div>${stepper('tg:' + m, c.target[m], '', 1)}<button class="switch ${c.hide[m] ? '' : 'on'}" style="margin-left:10px" data-act="vis" data-m="${m}" aria-label="${m}を表示"></button></div>`).join('')}
       <div class="note">右のスイッチは部位の表示・非表示です。</div>
     </div>
-    <div class="card">
-      <h2>データ</h2>
-      <div class="row" style="flex-wrap:wrap;gap:8px">
-        <button class="btn" data-act="backup" style="flex-basis:100%">バックアップを保存</button>
-        <button class="btn grow" data-act="restore">復元</button>
-        <button class="btn grow" data-act="csv">CSV書き出し</button>
-      </div>
-      <div class="note" style="margin-top:10px">${lb}。記録はこのiPhoneの中だけにあります。保存では「ファイルに保存」を選びます。iCloud Drive に置くと、iPhoneが壊れても残ります。</div>
-    </div>
+    ${themeCard()}
     <div class="card">
       <h2>メモ</h2>
       <div class="note">・推定1RMはO'Connor式（重量 × (1 + 0.025 × 回数)）です。他アプリ（Epley系など）と数値が違う場合があります。<br>
@@ -553,11 +556,11 @@ function pickSheet(mode) {
   S.pick.mode = mode;
   const keepScroll = $('#sheet-root .sheet') && $('#pklist') ? $('#sheet-root .sheet').scrollTop : 0;
   const { isDay, isAlt, menu } = pickCtx();
-  const also = isDay && menu ? `<button class="toggle ${S.pick.also ? 'on' : ''}" style="width:100%;margin-bottom:6px" data-act="pickAlso">${S.pick.also ? '✓ ' : ''}今後の「${esc(menu.name)}」メニューにも追加する</button>` : '';
+  const also = isDay && menu ? `<div class="row between alsorow"><span>今後の「${esc(menu.name)}」にも追加</span><button class="switch ${S.pick.also ? 'on' : ''}" data-act="pickAlso" role="switch" aria-checked="${!!S.pick.also}" aria-label="今後のメニューにも追加"></button></div>` : '';
   const to = isAlt ? `「${esc(S.form.name)}」の代替に入れます` : isDay ? 'この日の記録に入れます' : `「${esc(menu.name)}」に入れます`;
   sheet(`<h2 style="margin-bottom:4px">${isAlt ? '代替種目を追加' : '種目を追加'}</h2>
-    <div class="sub" style="margin-bottom:8px">${to}。よくやる種目が上に出ます</div>
-    <input id="pk-q" class="pkq" type="text" inputmode="text" autocomplete="off" autocapitalize="off" placeholder="${isAlt ? '種目名で探す' : '種目名で探す。なければ、そのまま入力して追加'}" value="${esc(S.pick.q || '')}">
+    <div class="sub" style="margin-bottom:8px">${to}。よくやる種目が上に出ます${isAlt ? '' : '。なければ、入力した名前で作れます'}</div>
+    <input id="pk-q" class="pkq" type="text" inputmode="text" autocomplete="off" autocapitalize="off" placeholder="種目名で検索" value="${esc(S.pick.q || '')}">
     ${also}
     <div id="pklist">${pickListHtml()}</div>
     <button class="btn block" data-act="${isAlt ? 'formBack' : 'close'}" style="margin-top:14px">${isAlt ? '戻る' : '閉じる'}</button>`);
