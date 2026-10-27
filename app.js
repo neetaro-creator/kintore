@@ -1,7 +1,7 @@
 'use strict';
 /* 画面と操作。ロジックは logic.js（純関数）、保存は db.js、人体図は figure.js、並べ替えは drag.js、タイマーは timer.js。 */
 
-const BUILD = 'p2-1027-a'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
+const BUILD = 'p2-1027-b'; // 更新のたびに上げる。sw.js の CACHE と同じ値にする（テストで照合）
 const L = Logic;
 const MUSCLES = L.MUSCLES;
 const CATS = L.CATS;
@@ -150,8 +150,7 @@ function viewHome() {
   return `
     ${S.storeError ? '<div class="banner">この画面では記録を保存できません（プライベートブラウズでは保存できません）。</div>' : ''}
     ${due ? '<div class="banner">バックアップを30日以上保存していません。設定から保存してください。</div>' : ''}
-    <div class="card">${card}</div>
-    ${firstRun ? '' : `<div id="cal" style="margin-top:14px">
+    ${firstRun ? '' : `<div id="cal">
     <div class="cal-head">
       <button data-act="cal" data-d="-1" aria-label="前の月">‹</button>
       <div class="ttl">${y}年${m + 1}月</div>
@@ -160,6 +159,7 @@ function viewHome() {
     <div class="cal-week">${WD.map(w => `<div>${w}</div>`).join('')}</div>
     <div class="cal-grid">${cells}</div>
     </div>`}
+    <div class="card" style="margin-top:14px">${card}</div>
     <button class="btn block" data-act="rm">RM計算</button>`;
 }
 
